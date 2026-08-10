@@ -1,0 +1,13 @@
+id: SYS_FIREWALLD
+category: System
+section: "3.7"
+title: Firewalld
+parser: firewalld
+assessment:
+  inactive:
+    grade: A
+  active:
+    grade: B
+  unknown:
+    grade: UNKNOWN
+note: Active firewalld may be required by host security policy; grading therefore requires environment context before production use.

@@ -1,0 +1,14 @@
+id: SYS_FILESYSTEM
+category: System
+section: "3.4"
+title: Filesystem
+parser: filesystem
+checks:
+  - id: lvm_usage
+    description: Prefer LVM-backed filesystems for standardization and extensibility.
+  - id: swap
+    description: Confirm swap is configured according to operating policy.
+  - id: filesystem_type
+    description: Prefer XFS for RHEL 7 and later unless workload requirements differ.
+missing_data:
+  grade: UNKNOWN

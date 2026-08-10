@@ -1,0 +1,16 @@
+network:
+  bonding:
+    candidates:
+      - proc/net/bonding/*
+      - sos_commands/networking/ip_-d_link
+  links:
+    candidates:
+      - sos_commands/networking/ip_-s_link
+      - sos_commands/networking/ethtool_*
+  ring_buffer:
+    candidates:
+      - sos_commands/networking/ethtool_-g_*
+  kernel_parameters:
+    candidates:
+      - sos_commands/kernel/sysctl_-a
+      - proc/sys/net/*

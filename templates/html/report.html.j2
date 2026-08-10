@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>{{ report_title }}</title>
+</head>
+<body>
+  <h1>{{ report_title }}</h1>
+  {% for host in hosts %}
+    <section>
+      <h2>{{ host.hostname }}</h2>
+      {% for item in host.diagnostics %}
+        <article>
+          <h3>{{ item.section }}. {{ item.title }}</h3>
+          <p><strong>평가:</strong> {{ item.grade }}</p>
+          <p><strong>현재 값:</strong> {{ item.value or '-' }}</p>
+          {% if item.findings %}<ul>{% for f in item.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% endfor %}
+</body>
+</html>

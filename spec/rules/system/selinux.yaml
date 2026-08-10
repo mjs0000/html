@@ -1,0 +1,15 @@
+id: SYS_SELINUX
+category: System
+section: "3.6"
+title: SELINUX
+parser: selinux
+assessment:
+  Disabled:
+    grade: A
+  Permissive:
+    grade: B
+  Enforcing:
+    grade: B
+  UNKNOWN:
+    grade: UNKNOWN
+note: Initial grading mirrors the supplied scope document and must be reviewed before production use.

@@ -1,0 +1,22 @@
+system:
+  hostname:
+    candidates:
+      - hostname
+      - sos_commands/host/hostname
+  os_release:
+    candidates:
+      - etc/os-release
+      - etc/redhat-release
+  boot_mode:
+    candidates:
+      - sos_commands/boot/ls_-alZR_.sys.firmware
+      - sos_commands/boot/efibootmgr_-v
+  filesystem:
+    candidates:
+      - sos_commands/filesys/df_-alP
+      - sos_commands/filesys/lsblk*
+      - etc/fstab
+  selinux:
+    candidates:
+      - sos_commands/selinux/getenforce
+      - etc/selinux/config

@@ -1,0 +1,20 @@
+storage:
+  multipath:
+    candidates:
+      - sos_commands/multipath/multipath_-ll
+      - etc/multipath.conf
+      - etc/multipath/*
+  block_devices:
+    candidates:
+      - sos_commands/block/lsblk*
+      - sos_commands/filesys/lsblk*
+  lvm:
+    candidates:
+      - sos_commands/lvm2/pvs*
+      - sos_commands/lvm2/vgs*
+      - sos_commands/lvm2/lvs*
+  nfs:
+    candidates:
+      - proc/mounts
+      - etc/fstab
+      - sos_commands/nfs/*

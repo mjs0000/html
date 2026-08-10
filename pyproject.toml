@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sosdiag"
+version = "0.1.0"
+description = "RHEL sosreport structure-diagnostic report generator"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0",
+  "Jinja2>=3.1",
+  "python-docx>=1.1",
+  "docxtpl>=0.18",
+  "pydantic>=2.7",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "jsonschema>=4.22"]
+
+[project.scripts]
+sosdiag = "sosdiag.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

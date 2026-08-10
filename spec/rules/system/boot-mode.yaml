@@ -1,0 +1,20 @@
+id: SYS_BOOT_MODE
+category: System
+section: "3.3"
+title: Boot Mode
+parser: boot_mode
+assessment:
+  UEFI:
+    grade: A
+    message: UEFI environment is in use.
+  BIOS:
+    grade: B
+    message: Legacy BIOS environment is in use.
+  UNKNOWN:
+    grade: UNKNOWN
+    message: Boot mode could not be determined from sosreport evidence.
+recommendation:
+  - New installations should use UEFI.
+  - Existing Legacy BIOS systems should not be converted solely for this diagnostic item.
+evidence_required:
+  - current_boot_mode
