@@ -1,0 +1,50 @@
+from pydantic import BaseModel, Field
+
+from .diagnostic import HostReport
+
+
+class Person(BaseModel):
+    name: str
+    role: str | None = None
+    phone: str | None = None
+    email: str | None = None
+
+
+class CustomerContact(Person):
+    pass
+
+
+class ReportInfo(BaseModel):
+    title: str = "RHEL Health Check Report"
+    version: str = "v0.1"
+    report_date: str | None = None
+
+
+class CustomerInfo(BaseModel):
+    name: str
+    site: str | None = None
+    subscription: str | None = None
+    contact: CustomerContact | None = None
+
+
+class ExecutionPeriod(BaseModel):
+    start: str | None = None
+    end: str | None = None
+
+
+class ExecutionInfo(BaseModel):
+    period: ExecutionPeriod = Field(default_factory=ExecutionPeriod)
+    location: str | None = None
+
+
+class ReportMetadata(BaseModel):
+    report: ReportInfo = Field(default_factory=ReportInfo)
+    customer: CustomerInfo
+    execution: ExecutionInfo = Field(default_factory=ExecutionInfo)
+    sales_representative: Person | None = None
+    technical_engineers: list[Person] = Field(default_factory=list)
+
+
+class DiagnosticReport(BaseModel):
+    metadata: ReportMetadata
+    hosts: list[HostReport] = Field(default_factory=list)
