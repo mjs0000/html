@@ -1,20 +1,41 @@
 storage:
+  io_scheduler:
+    candidates:
+      - sos_commands/block/lsblk_-t
+      - sys/devices/**/block/*/queue/scheduler
+      - sys/block/*/queue/scheduler
+    device_context:
+      - sos_commands/block/lsblk_-O_-P
+      - sos_commands/block/lsblk_-D
+
   multipath:
     candidates:
       - sos_commands/multipath/multipath_-ll
+      - sos_commands/multipath/multipathd_show_config
       - etc/multipath.conf
       - etc/multipath/*
+    context_candidates:
+      - sos_commands/fibrechannel/*
+      - sos_commands/devicemapper/*
+      - sos_commands/block/lsblk_-O_-P
+
   block_devices:
     candidates:
       - sos_commands/block/lsblk*
       - sos_commands/filesys/lsblk*
+
   lvm:
     candidates:
       - sos_commands/lvm2/pvs*
       - sos_commands/lvm2/vgs*
       - sos_commands/lvm2/lvs*
+
   nfs:
     candidates:
+      - sos_commands/nfs/mountstats_-n
+      - proc/*/mountstats
+      - proc/*/mounts
       - proc/mounts
       - etc/fstab
+      - sos_commands/nfs/nfsstat_-o_all
       - sos_commands/nfs/*
