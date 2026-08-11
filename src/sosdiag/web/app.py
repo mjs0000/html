@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 import shutil
 import uuid
+from datetime import datetime
 from html import escape
 from pathlib import Path
 from typing import Annotated
@@ -57,8 +59,12 @@ async def create_report(
     output_format: Annotated[str, Form("html")],
 ) -> HTMLResponse:
     job_id = uuid.uuid4().hex[:12]
-    job_upload_dir = UPLOAD_DIR / job_id
-    job_output_dir = OUTPUT_DIR / job_id
+    job_date = datetime.now().strftime("%Y%m%d")
+    customer_key = _safe_customer_key(customer_name)
+    job_key = f"{customer_key}_{job_date}_{job_id}"
+
+    job_upload_dir = UPLOAD_DIR / job_key
+    job_output_dir = OUTPUT_DIR / job_key
     job_upload_dir.mkdir(parents=True, exist_ok=True)
     job_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,7 +111,7 @@ async def create_report(
         generated.append(
             {
                 "name": html_path.name,
-                "url": f"/reports/{job_id}/{html_path.name}",
+                "url": f"/reports/{job_key}/{html_path.name}",
             }
         )
 
@@ -115,7 +121,7 @@ async def create_report(
         generated.append(
             {
                 "name": docx_path.name,
-                "url": f"/reports/{job_id}/{docx_path.name}",
+                "url": f"/reports/{job_key}/{docx_path.name}",
             }
         )
 
@@ -123,6 +129,7 @@ async def create_report(
     return HTMLResponse(
         template.render(
             job_id=job_id,
+            job_key=job_key,
             customer_name=customer_name,
             uploaded=saved_files,
             generated=generated,
@@ -130,12 +137,19 @@ async def create_report(
     )
 
 
-@app.get("/reports/{job_id}/{filename}")
-def download_report(job_id: str, filename: str) -> FileResponse:
-    safe_job = Path(job_id).name
+@app.get("/reports/{job_key}/{filename}")
+def download_report(job_key: str, filename: str) -> FileResponse:
+    safe_job_key = Path(job_key).name
     safe_name = Path(filename).name
-    target = OUTPUT_DIR / safe_job / safe_name
+    target = OUTPUT_DIR / safe_job_key / safe_name
     return FileResponse(target, filename=safe_name)
+
+
+def _safe_customer_key(customer_name: str) -> str:
+    value = customer_name.strip().replace(" ", "_")
+    value = re.sub(r"[^\w.-]+", "_", value, flags=re.UNICODE)
+    value = re.sub(r"_+", "_", value).strip("_.")
+    return value or "customer"
 
 
 def _write_placeholder_html(
