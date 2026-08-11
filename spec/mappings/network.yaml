@@ -1,16 +1,42 @@
 network:
   bonding:
     candidates:
+      - proc/*/net/bonding/*
       - proc/net/bonding/*
+      - etc/NetworkManager/system-connections/bond*.nmconnection
+      - sos_commands/networkmanager/nmcli_con_show_id_bond*
+      - sos_commands/networkmanager/nmcli_con
       - sos_commands/networking/ip_-d_link
+
   links:
     candidates:
+      - sos_commands/networkmanager/nmcli_general_status
+      - sos_commands/networkmanager/nmcli_dev
       - sos_commands/networking/ip_-s_link
       - sos_commands/networking/ethtool_*
+
   ring_buffer:
     candidates:
       - sos_commands/networking/ethtool_-g_*
+      - sos_commands/networking/ethtool_-S_*
+      - sos_commands/networking/ethtool_*
+      - sos_commands/networking/ip_-s_link
+
   kernel_parameters:
     candidates:
       - sos_commands/kernel/sysctl_-a
       - proc/sys/net/*
+    softnet_candidates:
+      - proc/*/net/softnet_stat
+      - proc/net/softnet_stat
+    counter_candidates:
+      - sos_commands/networking/ethtool_-S_*
+      - sos_commands/networking/ip_-s_link
+
+  netstate:
+    candidates:
+      - sos_commands/networkmanager/nmcli_general_status
+      - sos_commands/networkmanager/nmcli_dev
+      - sos_commands/networkmanager/nmcli_con_show_--active
+      - sos_commands/networking/ip_-s_link
+      - sos_commands/networking/ethtool_*
