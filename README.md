@@ -54,16 +54,16 @@ podman rm -f sosdiag
 
 ## Current implementation status
 
-The repository now contains a runnable FastAPI/Podman web skeleton with:
+The repository contains a runnable FastAPI/Podman web skeleton with:
 
 - single or multiple sosreport upload
-- separate report metadata input form
+- separate customer/execution/sales/engineer input form
 - HTML / DOCX / both selector
 - persistent upload/output directories
 - health endpoint at `/health`
-- placeholder HTML generation for validating the complete browser/container/file flow
+- actual downloadable HTML and DOCX files for validating the full browser/container/output workflow
 
-The full sosreport parsing engine, all diagnostic rules, and final DOCX renderer are intentionally still pending. The web API contains an explicit integration point for that implementation.
+The current generated HTML/DOCX content is a **workflow-validation report**, not the final diagnostic report. It contains entered report metadata and uploaded sosreport filenames. The production sosreport parser, full diagnostic rule set, A/B/C evaluation, aggregation, and final RockPLACE report rendering are the next implementation phase.
 
 ## Project goals
 
