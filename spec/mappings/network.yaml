@@ -6,13 +6,20 @@ network:
       - etc/NetworkManager/system-connections/bond*.nmconnection
       - sos_commands/networkmanager/nmcli_con_show_id_bond*
       - sos_commands/networkmanager/nmcli_con
+      - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-d_link
 
   links:
     candidates:
       - sos_commands/networkmanager/nmcli_general_status
       - sos_commands/networkmanager/nmcli_dev
+      - sos_commands/networkmanager/nmcli_con_show_--active
+      - sos_commands/networkmanager/journalctl_--no-pager_--unit_NetworkManager
+      - etc/NetworkManager/NetworkManager.conf
+      - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
+      - sos_commands/networking/ip_-d_address
+      - sos_commands/networking/ip_-o_addr
       - sos_commands/networking/ethtool_*
 
   ring_buffer:
@@ -20,6 +27,7 @@ network:
       - sos_commands/networking/ethtool_-g_*
       - sos_commands/networking/ethtool_-S_*
       - sos_commands/networking/ethtool_*
+      - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
 
   kernel_parameters:
@@ -31,6 +39,7 @@ network:
       - proc/net/softnet_stat
     counter_candidates:
       - sos_commands/networking/ethtool_-S_*
+      - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
 
   netstate:
@@ -38,5 +47,10 @@ network:
       - sos_commands/networkmanager/nmcli_general_status
       - sos_commands/networkmanager/nmcli_dev
       - sos_commands/networkmanager/nmcli_con_show_--active
+      - sos_commands/networkmanager/journalctl_--no-pager_--unit_NetworkManager
+      - etc/NetworkManager/NetworkManager.conf
+      - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
+      - sos_commands/networking/ip_-d_address
+      - sos_commands/networking/ip_-o_addr
       - sos_commands/networking/ethtool_*
