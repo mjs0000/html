@@ -1,22 +1,165 @@
 system:
   hostname:
     candidates:
-      - hostname
       - sos_commands/host/hostname
+      - hostname
+
   os_release:
     candidates:
-      - etc/os-release
       - etc/redhat-release
+      - etc/os-release
+      - sos_commands/kernel/uname_-a
+
+  hardware:
+    candidates:
+      - sos_commands/hardware/dmidecode
+      - sos_commands/processor/lscpu
+      - sos_commands/pci/lspci_-nnvv
+
   boot_mode:
     candidates:
-      - sos_commands/boot/ls_-alZR_.sys.firmware
       - sos_commands/boot/efibootmgr_-v
+      - sos_commands/boot/ls_-lanR_.sys.firmware
+      - sos_commands/boot/ls_-alZR_.sys.firmware
+    secure_boot_candidates:
+      - sos_commands/boot/mokutil_--sb-state
+
   filesystem:
     candidates:
-      - sos_commands/filesys/df_-alP
-      - sos_commands/filesys/lsblk*
+      - sos_commands/filesys/findmnt
+      - sos_commands/block/lsblk_-f_-a_-l
+      - sos_commands/filesys/df_-ali_-x_autofs
+      - sos_commands/filesys/df_-aliT_-x_autofs
+      - sos_commands/filesys/df_-al_-x_autofs
       - etc/fstab
+    lvm_candidates:
+      - sos_commands/lvm2/pvs*
+      - sos_commands/lvm2/vgs*
+      - sos_commands/lvm2/lvs*
+    swap_candidates:
+      - proc/swaps
+      - sos_commands/memory/swapon_--show*
+
+  packages:
+    candidates:
+      - installed-rpms
+      - sos_commands/dnf/dnf_list_installed
+      - sos_commands/dnf/dnf_--assumeno_list_installed_dnf
+    updateinfo_optional:
+      - sos_commands/dnf/dnf_updateinfo*
+      - sos_commands/yum/yum_updateinfo*
+
   selinux:
     candidates:
+      - sos_commands/selinux/sestatus
       - sos_commands/selinux/getenforce
       - etc/selinux/config
+
+  firewalld:
+    candidates:
+      - sos_commands/systemd/systemctl_list-unit-files
+      - sos_commands/systemd/systemctl_list-units
+      - sos_commands/firewalld/firewall-cmd_--list-all-zones
+      - etc/firewalld/*
+
+  time_sync:
+    candidates:
+      - sos_commands/chrony/chronyc_-n_sources
+      - sos_commands/chrony/chronyc_tracking
+      - sos_commands/chrony/chronyc_sourcestats
+      - etc/chrony.conf
+      - sos_commands/systemd/timedatectl
+
+  kdump:
+    candidates:
+      - proc/cmdline
+      - sys/kernel/kexec_crash_size
+      - etc/kdump.conf
+      - sos_commands/systemd/systemctl_list-unit-files
+      - sos_commands/systemd/systemctl_list-units
+      - sos_commands/kernel/sysctl_-a
+    optional_candidates:
+      - sos_commands/kdump/kdumpctl_status
+      - sos_commands/kdump/kdumpctl_estimate
+      - var/crash/*
+
+  error_log:
+    candidates:
+      - var/log/messages
+      - var/log/messages-*
+      - sos_commands/logs/journalctl*
+
+  kernel_parameters:
+    candidates:
+      - sos_commands/kernel/sysctl_-a
+      - proc/sys/*
+
+  boot_parameters:
+    candidates:
+      - proc/cmdline
+      - etc/default/grub
+      - boot/grub2/grub.cfg
+      - boot/efi/EFI/*/grub.cfg
+
+  services:
+    candidates:
+      - sos_commands/systemd/systemctl_list-unit-files
+      - sos_commands/systemd/systemctl_list-units
+      - etc/systemd/system/*.wants/*
+
+  app_coredump:
+    candidates:
+      - etc/security/limits.conf
+      - etc/security/limits.d/*
+      - etc/systemd/coredump.conf
+      - etc/systemd/coredump.conf.d/*
+      - usr/lib/sysctl.d/50-coredump.conf
+      - proc/sys/kernel/core_pattern
+      - usr/lib/tmpfiles.d/systemd.conf
+      - etc/tmpfiles.d/*
+
+  logrotate_sysstat:
+    logrotate_candidates:
+      - etc/logrotate.conf
+      - etc/logrotate.d/*
+      - sos_commands/logrotate/logrotate_debug
+      - var/lib/logrotate/logrotate.status
+    sysstat_candidates:
+      - usr/lib/systemd/system/sysstat-collect.timer
+      - etc/systemd/system/sysstat.service.wants/sysstat-collect.timer
+      - etc/cron.d/sysstat
+      - sos_commands/systemd/systemctl_list-timers_--all
+      - installed-rpms
+
+  tuned:
+    candidates:
+      - sos_commands/tuned/tuned-adm_active
+      - sos_commands/tuned/tuned-adm_recommend
+      - sos_commands/tuned/tuned-adm_verify
+      - etc/tuned/active_profile
+      - sos_commands/systemd/systemctl_list-unit-files
+      - sos_commands/systemd/systemctl_list-units
+
+  irqbalance:
+    candidates:
+      - etc/sysconfig/irqbalance
+      - sos_commands/systemd/systemctl_list-unit-files
+      - sos_commands/systemd/systemctl_list-units
+
+  timers:
+    candidates:
+      - sos_commands/systemd/systemctl_list-timers_--all
+      - usr/lib/systemd/system/*.timer
+      - etc/systemd/system/timers.target.wants/*
+
+  other_settings:
+    history_candidates:
+      - etc/profile
+      - etc/profile.d/*
+    rsyslog_candidates:
+      - etc/rsyslog.conf
+      - etc/rsyslog.d/*
+    cron_candidates:
+      - etc/crontab
+      - etc/cron.d/*
+      - sos_commands/cron/*
