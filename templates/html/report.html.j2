@@ -2,22 +2,74 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <title>{{ report_title }}</title>
+  <title>{{ metadata.report.title }}</title>
 </head>
 <body>
-  <h1>{{ report_title }}</h1>
-  {% for host in hosts %}
-    <section>
-      <h2>{{ host.hostname }}</h2>
-      {% for item in host.diagnostics %}
-        <article>
-          <h3>{{ item.section }}. {{ item.title }}</h3>
-          <p><strong>평가:</strong> {{ item.grade }}</p>
-          <p><strong>현재 값:</strong> {{ item.value or '-' }}</p>
-          {% if item.findings %}<ul>{% for f in item.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
-        </article>
+  <header>
+    <h1>{{ metadata.report.title }}</h1>
+    <p>{{ metadata.customer.name }}</p>
+    {% if metadata.report.report_date %}<p>작성일자: {{ metadata.report.report_date }}</p>{% endif %}
+  </header>
+
+  <section id="overview">
+    <h2>1. 구조진단(Health Check) 개요</h2>
+
+    <h3>1.1. 수행 정보</h3>
+    <table>
+      <tr><th>고객사</th><td>{{ metadata.customer.name }}</td><th>구독 유무</th><td>{{ metadata.customer.subscription or '-' }}</td></tr>
+      <tr><th>기간</th><td>{{ metadata.execution.period.start or '-' }} ~ {{ metadata.execution.period.end or '-' }}</td><th>장소</th><td>{{ metadata.execution.location or metadata.customer.site or '-' }}</td></tr>
+      <tr><th>고객 담당자</th><td colspan="3">{{ metadata.customer.contact.name if metadata.customer.contact else '-' }}</td></tr>
+    </table>
+
+    <h3>1.2. rockPLACE 영업 대표</h3>
+    {% if metadata.sales_representative %}
+    <table><tr><th>Name</th><th>Role</th><th>Phone</th><th>E-Mail</th></tr>
+      <tr><td>{{ metadata.sales_representative.name }}</td><td>{{ metadata.sales_representative.role or '-' }}</td><td>{{ metadata.sales_representative.phone or '-' }}</td><td>{{ metadata.sales_representative.email or '-' }}</td></tr>
+    </table>
+    {% endif %}
+
+    <h3>1.3. rockPLACE 기술 담당</h3>
+    <table><tr><th>Name</th><th>Role</th><th>Phone</th><th>E-Mail</th></tr>
+      {% for engineer in metadata.technical_engineers %}
+      <tr><td>{{ engineer.name }}</td><td>{{ engineer.role or '-' }}</td><td>{{ engineer.phone or '-' }}</td><td>{{ engineer.email or '-' }}</td></tr>
       {% endfor %}
-    </section>
-  {% endfor %}
+    </table>
+
+    <h3>1.4. 대상 시스템</h3>
+    <table><tr><th>No</th><th>구분</th><th>Hostname</th><th>H/W Model</th><th>Version</th></tr>
+      {% for host in hosts %}
+      <tr><td>{{ loop.index }}</td><td>{{ host.system_type or '-' }}</td><td>{{ host.hostname }}</td><td>{{ host.hardware_model or '-' }}</td><td>{{ host.os_version or '-' }}</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+
+  <section id="details">
+    <h2>2. 상세 Report</h2>
+    {% for host in hosts %}
+      <section>
+        <h3>{{ host.hostname }}</h3>
+        {% for item in host.reportable_diagnostics() %}
+        <article>
+          <h4>{{ item.section }}. {{ item.title }}</h4>
+          {% if item.definition %}<p>{{ item.definition }}</p>{% endif %}
+          <p><strong>평가:</strong> {{ item.grade }}</p>
+          {% if item.summary %}<h5>검토 의견</h5><p>{{ item.summary }}</p>{% endif %}
+          {% if item.findings %}<h5>점검 내역</h5><ul>{% for f in item.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+          {% for table in item.tables %}
+          <table>
+            <tr>{% for col in table.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+            {% for row in table.rows %}<tr>{% for col in table.columns %}<td>{{ row.get(col, '-') }}</td>{% endfor %}</tr>{% endfor %}
+          </table>
+          {% endfor %}
+          {% if item.recommendations %}<h5>권장 사항</h5><ul>{% for r in item.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+          {% if item.remediation %}<h5>조치해야 할 사항</h5><ul>{% for r in item.remediation %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+          {% if item.evidence %}
+          <details><summary>Evidence</summary><ul>{% for e in item.evidence %}<li><code>{{ e.source }}</code>: {{ e.detail }}</li>{% endfor %}</ul></details>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </section>
 </body>
 </html>
