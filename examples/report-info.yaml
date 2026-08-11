@@ -1,0 +1,32 @@
+report:
+  title: "RHEL Health Check Report"
+  version: "v0.1"
+  report_date: "2026-08-11"
+
+customer:
+  name: "Customer Name"
+  site: "Customer IDC"
+  subscription: "Y"
+  contact:
+    name: "Customer Contact"
+    role: ""
+    phone: ""
+    email: ""
+
+execution:
+  period:
+    start: "2026-08-01"
+    end: "2026-08-05"
+  location: "Customer IDC"
+
+sales_representative:
+  name: "Sales Representative"
+  role: "OSS Business Team"
+  phone: ""
+  email: ""
+
+technical_engineers:
+  - name: "Engineer Name"
+    role: "OSS Unit"
+    phone: ""
+    email: ""
