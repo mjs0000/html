@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sosreport Structure Diagnostic</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 980px; margin: 40px auto; padding: 0 20px; color: #1f2937; }
+    h1 { margin-bottom: 8px; }
+    .hint { color: #6b7280; margin-bottom: 28px; }
+    fieldset { margin: 20px 0; padding: 20px; border: 1px solid #d1d5db; border-radius: 8px; }
+    legend { font-weight: 700; padding: 0 8px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+    label { display: block; font-weight: 600; font-size: 14px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 5px; }
+    .full { grid-column: 1 / -1; }
+    button { padding: 12px 22px; border: 0; border-radius: 6px; background: #0f4c81; color: white; font-weight: 700; cursor: pointer; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>sosreport Structure Diagnostic</h1>
+  <div class="hint">하나 또는 여러 개의 sosreport를 업로드하여 동일한 분석 결과에서 HTML/DOCX 보고서를 생성합니다.</div>
+
+  <form method="post" action="/reports" enctype="multipart/form-data">
+    <fieldset>
+      <legend>수행 정보</legend>
+      <div class="grid">
+        <label>고객사<input name="customer_name" required></label>
+        <label>수행 기간<input name="execution_period" placeholder="2026.08.01 ~ 2026.08.05" required></label>
+        <label>수행 장소<input name="location" required></label>
+        <label>고객 담당자<input name="customer_contact"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>rockPLACE 영업 대표</legend>
+      <div class="grid">
+        <label>이름<input name="sales_name"></label>
+        <label>Role<input name="sales_role"></label>
+        <label>Phone<input name="sales_phone"></label>
+        <label>E-Mail<input name="sales_email" type="email"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>rockPLACE 기술 담당</legend>
+      <div class="grid">
+        <label>이름<input name="engineer_name"></label>
+        <label>Role<input name="engineer_role"></label>
+        <label>Phone<input name="engineer_phone"></label>
+        <label>E-Mail<input name="engineer_email" type="email"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>진단 자료 및 출력</legend>
+      <div class="grid">
+        <label class="full">sosreport 파일 (복수 선택 가능)
+          <input name="sosreports" type="file" multiple required accept=".xz,.gz,.bz2,.tar,.tgz,.zip">
+        </label>
+        <label>출력 형식
+          <select name="output_format">
+            <option value="html">HTML</option>
+            <option value="docx">DOCX</option>
+            <option value="both">HTML + DOCX</option>
+          </select>
+        </label>
+      </div>
+    </fieldset>
+
+    <button type="submit">구조진단 보고서 생성</button>
+  </form>
+</body>
+</html>
