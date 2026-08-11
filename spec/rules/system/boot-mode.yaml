@@ -10,9 +10,10 @@ assessment:
   BIOS:
     grade: B
     message: Legacy BIOS environment is in use.
-  UNKNOWN:
-    grade: UNKNOWN
-    message: Boot mode could not be determined from sosreport evidence.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
+  reason: Boot mode could not be determined from required sosreport evidence.
 recommendation:
   - New installations should use UEFI.
   - Existing Legacy BIOS systems should not be converted solely for this diagnostic item.
