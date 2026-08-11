@@ -5,9 +5,8 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 APP_ROOT = Path(__file__).resolve().parents[3]
@@ -28,7 +27,7 @@ app = FastAPI(title="sosreport Structure Diagnostic")
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
+def index() -> HTMLResponse:
     template = env.get_template("index.html.j2")
     return HTMLResponse(template.render())
 
@@ -40,7 +39,6 @@ def health() -> dict[str, str]:
 
 @app.post("/reports", response_class=HTMLResponse)
 async def create_report(
-    request: Request,
     sosreports: Annotated[list[UploadFile], File(...)],
     customer_name: Annotated[str, Form(...)],
     execution_period: Annotated[str, Form(...)],
@@ -91,16 +89,14 @@ async def create_report(
         ],
     }
 
-    # Integration point for Claude implementation:
-    # 1. extract archives safely
+    # Integration point for the production implementation:
+    # 1. validate and safely extract archives
     # 2. parse each sosreport
     # 3. evaluate YAML rules
     # 4. aggregate a DiagnosticReport
-    # 5. render HTML and/or DOCX
-    #
-    # For now this runnable skeleton writes a simple HTML receipt so the
-    # container/upload/download workflow can be validated independently.
+    # 5. render HTML and/or DOCX from the same model
     generated: list[dict[str, str]] = []
+
     if output_format in {"html", "both"}:
         html_path = job_output_dir / "structure-diagnostic.html"
         html_path.write_text(
@@ -113,9 +109,6 @@ async def create_report(
             }
         )
 
-    # DOCX generation is intentionally deferred until the approved report
-    # template and diagnostic engine are wired in. The UI exposes the option
-    # now so the endpoint contract does not need to change later.
     if output_format in {"docx", "both"}:
         generated.append(
             {
@@ -156,7 +149,7 @@ def _placeholder_html(job_id: str, metadata: dict, uploaded: list[str]) -> str:
 <p><strong>Location:</strong> {metadata['location']}</p>
 <h2>Uploaded sosreports</h2>
 <ul>{rows}</ul>
-<p>This is a web/container workflow placeholder. Diagnostic parser and final RockPLACE report rendering will replace this body.</p>
+<p>This is a web/container workflow placeholder. The production diagnostic engine and RockPLACE renderer will replace this body.</p>
 </body>
 </html>
 """
@@ -166,3 +159,7 @@ def main() -> None:
     import uvicorn
 
     uvicorn.run("sosdiag.web.app:app", host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    main()
