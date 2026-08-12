@@ -1,13 +1,4 @@
 storage:
-  io_scheduler:
-    candidates:
-      - sos_commands/block/lsblk_-t
-      - sys/devices/**/block/*/queue/scheduler
-      - sys/block/*/queue/scheduler
-    device_context:
-      - sos_commands/block/lsblk_-O_-P
-      - sos_commands/block/lsblk_-D
-
   multipath:
     candidates:
       - sos_commands/multipath/multipath_-ll
@@ -18,6 +9,23 @@ storage:
       - sos_commands/fibrechannel/*
       - sos_commands/devicemapper/*
       - sos_commands/block/lsblk_-O_-P
+    normalized_fields:
+      - applicable
+      - driver_loaded
+      - map_count
+      - alias
+      - wwid
+      - vendor
+      - model
+      - path_count
+      - active_paths
+      - failed_paths
+      - path_policy
+      - features
+    notes:
+      - 'Only multipath clients are assessed.'
+      - 'Collected plugin output alone does not mean Multipath is in use.'
+      - 'Vendor-specific recommended settings remain an external/internal policy dependency.'
 
   block_devices:
     candidates:
@@ -29,13 +37,3 @@ storage:
       - sos_commands/lvm2/pvs*
       - sos_commands/lvm2/vgs*
       - sos_commands/lvm2/lvs*
-
-  nfs:
-    candidates:
-      - sos_commands/nfs/mountstats_-n
-      - proc/*/mountstats
-      - proc/*/mounts
-      - proc/mounts
-      - etc/fstab
-      - sos_commands/nfs/nfsstat_-o_all
-      - sos_commands/nfs/*
