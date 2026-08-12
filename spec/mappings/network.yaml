@@ -24,11 +24,24 @@ network:
 
   kernel_parameters:
     applicability:
-      requires_10g_or_faster_nic: true
+      requires_connected_10g_or_faster_nic: true
+      minimum_speed_mbps: 10000
+      require_physical_nic: true
+      require_link_detected: true
+      require_carrier_up: true
       speed_sources:
         - sos_commands/networking/ethtool_*
+      link_sources:
+        - sos_commands/networking/ethtool_*
         - sos_commands/networking/ip_-s_-d_link
-      minimum_speed_mbps: 10000
+        - sos_commands/networking/ip_-s_link
+        - sos_commands/networkmanager/nmcli_dev
+      applicability_logic:
+        all:
+          - physical_nic == true
+          - speed_mbps >= 10000
+          - link_detected == true
+          - carrier_up == true
     candidates:
       - sos_commands/kernel/sysctl_-a
       - proc/sys/net/*
@@ -40,7 +53,13 @@ network:
       - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
     normalized_fields:
+      - physical_nic
+      - interface_name
       - nic_speed_mbps
+      - link_detected
+      - carrier_up
+      - operational_state
+      - bond_master
       - netdev_max_backlog
       - netdev_budget
       - tcp_rmem
@@ -51,8 +70,11 @@ network:
       - softnet_drops
       - softnet_time_squeeze
     notes:
-      - 'This diagnostic is applicable only when at least one physical NIC is 10Gbps or faster.'
-      - 'If no 10Gbps-or-faster NIC is detected, mark the diagnostic internally SKIPPED and do not render it.'
+      - 'This diagnostic is applicable only when at least one physical NIC has an active 10Gbps-or-faster link.'
+      - 'NIC capability/presence alone is insufficient. The parser must confirm actual speed and an active link/carrier from collected runtime evidence.'
+      - 'A 10Gbps-or-faster NIC that is installed but disconnected, Link detected: no, NO-CARRIER, or DOWN does not make this diagnostic applicable.'
+      - 'Bond slave interfaces may satisfy applicability when their physical link is up; evaluate physical slave links rather than the logical bond interface speed alone.'
+      - 'If no connected 10Gbps-or-faster physical NIC is detected, mark the diagnostic internally SKIPPED and do not render it.'
 
   netstate:
     candidates:
