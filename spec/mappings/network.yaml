@@ -22,15 +22,13 @@ network:
       - sos_commands/networking/ip_-o_addr
       - sos_commands/networking/ethtool_*
 
-  ring_buffer:
-    candidates:
-      - sos_commands/networking/ethtool_-g_*
-      - sos_commands/networking/ethtool_-S_*
-      - sos_commands/networking/ethtool_*
-      - sos_commands/networking/ip_-s_-d_link
-      - sos_commands/networking/ip_-s_link
-
   kernel_parameters:
+    applicability:
+      requires_10g_or_faster_nic: true
+      speed_sources:
+        - sos_commands/networking/ethtool_*
+        - sos_commands/networking/ip_-s_-d_link
+      minimum_speed_mbps: 10000
     candidates:
       - sos_commands/kernel/sysctl_-a
       - proc/sys/net/*
@@ -41,6 +39,20 @@ network:
       - sos_commands/networking/ethtool_-S_*
       - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
+    normalized_fields:
+      - nic_speed_mbps
+      - netdev_max_backlog
+      - netdev_budget
+      - tcp_rmem
+      - tcp_wmem
+      - rmem_max
+      - wmem_max
+      - min_free_kbytes
+      - softnet_drops
+      - softnet_time_squeeze
+    notes:
+      - 'This diagnostic is applicable only when at least one physical NIC is 10Gbps or faster.'
+      - 'If no 10Gbps-or-faster NIC is detected, mark the diagnostic internally SKIPPED and do not render it.'
 
   netstate:
     candidates:
