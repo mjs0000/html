@@ -38,7 +38,7 @@ Customer-facing grades remain A/B/C only. Missing required evidence after candid
 | 3.18 | 3.18 | `SYS_TIMER` | Timer | Full | `systemd_timer` | list-timers, timer units | timer enabled/active/next/last run |
 | 3.19 | 3.19 | `SYS_OTHER_SETTINGS` | 기타 설정 | Conditional | `other_settings` | profile, rsyslog, cron sources | history/session-filter/MAILTO; customer policy dependent |
 | 4.1 | 4.1 | `NET_BONDING` | 이중화 (Bonding) | Conditional | `bonding` | proc/*/net/bonding, NM profile/nmcli fallback, ip link | mode/miimon/LACP/slaves/active/link; only bonding users |
-| 4.2 | 4.3 | `NET_KERNEL_PARAM` | 네트워크 커널 파라미터 | Conditional | `network_sysctl` | **ethtool speed first**, sysctl, softnet_stat, ethtool/IP counters | **applicable only when >=10Gbps physical NIC detected**; otherwise SKIPPED |
+| 4.2 | 4.3 | `NET_KERNEL_PARAM` | 네트워크 커널 파라미터 | Conditional | `network_sysctl` | **physical NIC ethtool speed + link/carrier first**, sysctl, softnet_stat, ethtool/IP counters | **applicable only when an actually connected physical NIC is operating at >=10Gbps**; installed/capable but disconnected 10G NICs do not qualify; otherwise SKIPPED |
 | 4.3 | 4.4 | `NET_NETSTATE` | Netstate | Full | `netstate` | nmcli if present; ip/ethtool/NM config+journal fallback | carrier/speed/device/error/drop/NM state |
 | 5.1 | 5.2 | `STG_MULTIPATH` | Device Mapper Multipath | Conditional | `multipath` | multipath -ll, multipathd config, multipath.conf, FC/DM context | applicable/driver/maps/WWID/vendor/model/path state/policy; only multipath clients |
 
@@ -94,19 +94,40 @@ A keyword hit is **not automatically C**. For example, documentation text, histo
 
 ## Network policy after removing standalone 10G item
 
-There is no longer a separate `10G 환경 설정` report item. NIC speed is now a fact used by `NET_KERNEL_PARAM` applicability:
+There is no longer a separate `10G 환경 설정` report item. NIC speed/link state is now an applicability fact used only by `NET_KERNEL_PARAM`.
+
+The diagnostic runs **only when at least one physical NIC is actually linked/connected and operating at 10Gbps or faster**:
 
 ```text
-ethtool / link evidence
+physical NIC runtime evidence
         ↓
-physical NIC speed >= 10000 Mbps ?
-        ├─ No  → NET_KERNEL_PARAM = SKIPPED (not rendered)
-        └─ Yes → parse sysctl + softnet + NIC counters
-                     ↓
-                 apply network parameter rules
+physical interface ?
+        ├─ No  → ignore for 10G applicability
+        └─ Yes
+             ↓
+ethtool Speed >= 10000 Mbps ?
+        ├─ No  → not applicable
+        └─ Yes
+             ↓
+Link detected: yes / carrier up ?
+        ├─ No  → not applicable
+        └─ Yes → NET_KERNEL_PARAM applicable
+                    ↓
+              parse sysctl + softnet + NIC counters
+                    ↓
+              apply network parameter rules
 ```
 
-This keeps the scope focused while ensuring the 10G-specific kernel tuning recommendations are not incorrectly applied to 1G environments.
+Therefore these cases **do not** trigger the 10G network-kernel check:
+
+- A 10G-capable NIC exists but has no cable/link.
+- `ethtool` reports `Link detected: no`.
+- Interface state is `NO-CARRIER` or operationally DOWN.
+- A logical bond reports configuration but none of its physical 10G slaves has an active link.
+
+For Bonding, applicability should be determined from the **physical slave interfaces**. A bond can qualify when at least one physical slave has runtime speed >=10Gbps and an active carrier/link; the logical bond interface speed alone is not sufficient evidence.
+
+If no connected 10Gbps-or-faster physical NIC is found, `NET_KERNEL_PARAM` becomes internal `SKIPPED` and is not rendered in the customer report.
 
 ## Storage policy after scope reduction
 
