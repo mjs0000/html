@@ -87,7 +87,46 @@ system:
     candidates:
       - var/log/messages
       - var/log/messages-*
+      - sos_commands/kernel/dmesg
+      - sos_commands/kernel/dmesg_*
+      - sos_commands/logs/dmesg
+      - sos_commands/logs/dmesg_*
       - sos_commands/logs/journalctl*
+    search_profiles:
+      storage_io:
+        patterns:
+          - 'blk_update_request: I/O error'
+          - 'rejecting I/O to offline device'
+          - 'killing request'
+          - 'hostbyte=DID_NO_CONNECT'
+          - 'mark as failed'
+          - 'remaining active paths'
+          - 'parity'
+          - 'Abort command issued'
+          - 'Hardware Error'
+      generic_severity:
+        word_patterns:
+          - error
+          - emerg
+          - alert
+          - aleart
+          - crit
+          - err
+          - warn
+          - fail
+    normalized_fields:
+      - source
+      - timestamp
+      - category
+      - severity
+      - component
+      - matched_pattern
+      - message
+      - count
+    notes:
+      - 'Equivalent intent to the scope egrep keyword scan; implement in Python rather than shelling out.'
+      - 'Generic words such as error/warn/fail require contextual filtering to reduce false positives.'
+      - 'Finding a keyword is evidence for conditional assessment, not an automatic C grade.'
 
   kernel_parameters:
     candidates:
