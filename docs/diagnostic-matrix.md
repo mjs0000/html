@@ -1,14 +1,17 @@
-# Diagnostic Mapping Matrix v5
+# Diagnostic Mapping Matrix v6
 
 ## Active scope
 
-The active automation/report scope is **23 items: System 19 + Network 3 + Storage 1**.
+The active automation/report scope is **22 items: System 18 + Network 3 + Storage 1**.
 
 Excluded from the active diagnostic/report catalog:
 
+- `SYS_BOOT_PARAM` — 부팅 파라미터
 - `NET_10G` — 10G 환경 설정
 - `STG_IO_SCHEDULER` — I/O Scheduler
 - `STG_NFS_OPTIONS` — NFS Options
+
+The original RockPLACE scope section numbers are retained as `source_section` in `spec/catalog.yaml` for traceability. Active report sections are renumbered after exclusions.
 
 Customer-facing grades remain A/B/C only. Missing required evidence after candidate resolution is internal `SKIPPED` and is not rendered.
 
@@ -27,179 +30,131 @@ Customer-facing grades remain A/B/C only. Missing required evidence after candid
 | 3.9 | 3.9 | `SYS_KDUMP` | 덤프 수집 | Full | `kdump` | systemd, cmdline, kexec_crash_size, kdump.conf, sysctl, optional kdumpctl | enabled/active/crashkernel/reserved memory/target/panic sysctls |
 | 3.10 | 3.10 | `SYS_ERROR_LOG` | 시스템 에러 로그 | Conditional | `error_log` | `/var/log/messages*`, dmesg, journal | source/timestamp/category/severity/component/pattern/message/count; keyword hit requires context/severity assessment |
 | 3.11 | 3.11 | `SYS_KERNEL_PARAM` | 기본 커널 파라미터 | Full | `sysctl` | sysctl -a, proc/sys | dirty ratios/swappiness/ip_forward/somaxconn/syn backlog |
-| 3.12 | 3.12 | `SYS_BOOT_PARAM` | 부팅 파라미터 | Full / policy pending | `boot_parameters` | `/proc/cmdline`, `/etc/default/grub`, grub.cfg | runtime tokens, persistent tokens, token-value map, runtime/persistent diff; exact A/B/C token policy not yet defined in Scope body |
-| 3.13 | 3.13 | `SYS_DEFAULT_SERVICE` | Default Service Enabled | Conditional | `services` | systemd unit-files/units | installed/enabled/active/masked + feature applicability |
-| 3.14 | 3.14 | `SYS_APP_COREDUMP` | Application Core Dump | Full | `coredump` | limits, coredump.conf, `/etc/systemd/system.conf`, core_pattern, `/usr/lib/tmpfiles.d/systemd.conf`, tmpfiles overrides | core limits, `DefaultLimitCORE`, core pattern/storage, retention/exclusion |
-| 3.15 | 3.15 | `SYS_LOGROTATE_SYSSTAT` | Logrotate / sysstat(SAR) | Full | `logrotate_sysstat` | logrotate config/debug, installed-rpms, `/usr/lib/systemd/system/sysstat-collect.timer`, timer overrides/list-timers | rotation cadence/retention; sysstat installed/timer/OnCalendar/enabled |
-| 3.16 | 3.16 | `SYS_TUNED` | Tuned | Conditional | `tuned` | tuned-adm, profile, systemd, workload/NIC facts | daemon/profile/VM-BM/workload context |
-| 3.17 | 3.17 | `SYS_IRQBALANCE` | IRQ Balance Processing | Full | `irqbalance` | irqbalance config + systemd | enabled/active/ONESHOT |
-| 3.18 | 3.18 | `SYS_TIMER` | Timer | Conditional | `systemd_timer` | `systemctl list-timers --all`, unit files | inventory first; evaluate only timers with explicit policy, including dnf-makecache.timer |
-| 3.19 | 3.19 | `SYS_OTHER_SETTINGS` | 기타 설정 (rsyslog / cron) | Full | `other_settings` | `/etc/rsyslog.d/0-ignore-systemd-session-slice.conf`, `/etc/crontab` | rsyslog filter presence/content + cron MAILTO only |
+| 3.12 | 3.13 | `SYS_DEFAULT_SERVICE` | Default Service Enabled | Conditional | `services` | systemd unit-files/units | installed/enabled/active/masked + feature applicability |
+| 3.13 | 3.14 | `SYS_APP_COREDUMP` | Application Core Dump | Full | `coredump` | limits, coredump.conf, `/etc/systemd/system.conf`, core_pattern, `/usr/lib/tmpfiles.d/systemd.conf`, tmpfiles overrides | core limits, `DefaultLimitCORE`, core pattern/storage, retention/exclusion |
+| 3.14 | 3.15 | `SYS_LOGROTATE_SYSSTAT` | Logrotate / sysstat(SAR) | Full | `logrotate_sysstat` | logrotate config/debug, installed-rpms, `/usr/lib/systemd/system/sysstat-collect.timer`, timer overrides/list-timers | rotation cadence/retention; sysstat installed/timer/OnCalendar/enabled |
+| 3.15 | 3.16 | `SYS_TUNED` | Tuned | Conditional | `tuned` | tuned-adm, profile, systemd, workload/NIC facts | daemon/profile/VM-BM/workload context |
+| 3.16 | 3.17 | `SYS_IRQBALANCE` | IRQ Balance Processing | Full | `irqbalance` | irqbalance config + systemd | enabled/active/ONESHOT |
+| 3.17 | 3.18 | `SYS_TIMER` | Timer | Conditional | `systemd_timer` | `systemctl list-timers --all`, unit files | inventory first; evaluate only timers with explicit policy, including dnf-makecache.timer |
+| 3.18 | 3.19 | `SYS_OTHER_SETTINGS` | 기타 설정 (rsyslog / cron) | Full | `other_settings` | `/etc/rsyslog.d/0-ignore-systemd-session-slice.conf`, `/etc/crontab` | rsyslog filter presence/content + cron MAILTO only |
 | 4.1 | 4.1 | `NET_BONDING` | 이중화 (Bonding) | Conditional | `bonding` | proc/*/net/bonding, NM profile/nmcli fallback, ip link | mode/miimon/LACP/slaves/active/link; only bonding users |
 | 4.2 | 4.3 | `NET_KERNEL_PARAM` | 네트워크 커널 파라미터 | Conditional | `network_sysctl` | physical NIC ethtool speed + link/carrier first, sysctl, softnet_stat, ethtool/IP counters | applicable only when an actually connected physical NIC is operating at >=10Gbps; otherwise SKIPPED |
 | 4.3 | 4.4 | `NET_NETSTATE` | Netstate | Full | `netstate` | nmcli if present; ip/ethtool/NM config+journal fallback | carrier/speed/device/error/drop/NM state |
 | 5.1 | 5.2 | `STG_MULTIPATH` | Device Mapper Multipath | Conditional | `multipath` | multipath -ll, multipathd config, multipath.conf, FC/DM context | applicable/driver/maps/WWID/vendor/model/path state/policy; only multipath clients |
 
-## 3.12 Boot Parameters — current meaning
+## Detailed processing contract
 
-The source Scope table of contents includes **3.12 부팅 파라미터**, but the corresponding body does not provide a dedicated detailed rule table or explicit required/prohibited token list. Therefore the automation must not invent an A/B/C policy.
+Every diagnostic follows the same execution stages where applicable:
 
-The current parser responsibility is:
+1. Resolve ordered candidate files/globs from the extracted sosreport.
+2. Validate the command/file content. File presence alone is never a positive fact.
+3. Parse raw text into typed normalized facts.
+4. Evaluate applicability before grading.
+5. Apply the diagnostic rule to normalized facts only; the rule engine does not parse raw text.
+6. Produce internal status `PASS/WARN/FAIL/SKIPPED` and customer grade A/B/C for reportable items.
+7. Preserve exact evidence source paths and important matched text/values.
+8. Render the same result model to HTML/DOCX/JSON.
 
-1. Read runtime kernel command line from `/proc/cmdline`.
-2. Read persistent GRUB configuration from `/etc/default/grub`, `/boot/grub2/grub.cfg`, and EFI grub.cfg candidates.
-3. Normalize command-line tokens into key/value facts.
-4. Compare runtime tokens with persistent GRUB tokens and retain differences.
-5. Expose well-known values such as `crashkernel` to other diagnostics where needed, but do not duplicate Kdump grading in 3.12.
-6. Keep the exact 3.12 A/B/C token policy as `pending_policy` until RockPLACE defines which boot parameters are mandatory, prohibited, or contextual.
+## Item processing details
 
-Example normalized facts:
+### 3.1 Hardware Certification
 
-```yaml
-runtime_cmdline_tokens:
-  - ro
-  - crashkernel=1G-4G:192M,4G-64G:256M,64G-:512M
-  - rd.lvm.lv=rhel/root
-persistent_grub_tokens:
-  - ro
-  - crashkernel=auto
-runtime_vs_persistent_diff:
-  - crashkernel
-```
+Parse manufacturer/model/CPU/PCI/NIC facts from `dmidecode`, `lscpu`, and `lspci`. Hardware certification itself is not inferred locally; normalized hardware identifiers are passed to a Red Hat/internal certification reference provider. Missing authoritative certification data must not be converted to C.
 
-## 3.14 Application Core Dump
+### 3.2 Life-Cycle
 
-The diagnostic now explicitly checks both files requested by policy:
+Parse RHEL major/minor and kernel from `redhat-release`, `os-release`, and uname. Compare against a versioned lifecycle reference provider. Support end dates, EUS/ELS status, and current supported minor status are external-reference facts rather than sosreport facts.
 
-- `/etc/systemd/system.conf`
-  - inspect `DefaultLimitCORE`
-  - recommended value: `infinity`
-- `/usr/lib/tmpfiles.d/systemd.conf`
-  - inspect `/var/lib/systemd/coredump` retention definition
-  - Scope example shows default `3d`; review exclusion or longer retention such as `15d` when required
+### 3.3 Boot Mode
 
-Other evidence remains `limits.conf/limits.d`, `coredump.conf`, `core_pattern` and `/etc/tmpfiles.d/*` overrides.
+Use validated `efibootmgr` output, firmware directory listings, `/boot/efi` supporting evidence, and optional Secure Boot state. Reject shell-error output as evidence. Normalize `boot_mode`, EFI runtime presence, EFI mount presence, command success, and confidence. Existing production Legacy BIOS is not automatically C solely because new installations prefer UEFI.
 
-The Scope explicitly recommends unlimited soft/hard core values, shows `DefaultLimitCORE=infinity`, and describes `/var/lib/systemd/coredump` retention controlled by tmpfiles. The report should distinguish core-capture capability from retention policy.
+### 3.4 Filesystem
 
-## 3.15 Logrotate / sysstat(SAR)
+Read `findmnt`, `lsblk`, supported `df` variants, fstab, LVM and swap. Normalize mount/source/fstype/usage/inode, LVM relationships, and swap presence. Candidate path selection must not be tied rigidly to RHEL major version.
 
-The sysstat part must explicitly inspect:
+### 3.5 Package Updates
 
-```text
-/usr/lib/systemd/system/sysstat-collect.timer
-```
+Build the installed package inventory from `installed-rpms`/DNF output. Optional collected updateinfo can be used when valid, but latest/security assessment may require an advisory/reference provider. Absence of updateinfo is not itself a failure.
 
-The parser extracts `OnCalendar` and effective timer state. The Scope example shows a 10-minute default (`*:00/10`) and recommends changing the SAR collection interval to 1 minute. Effective overrides under `/etc/systemd/system/sysstat-collect.timer.d/*` must take precedence over the vendor unit when present.
+### 3.6 SELINUX
 
-Normalized facts include:
+Read runtime and configured SELinux state from `sestatus`, `getenforce`, and `/etc/selinux/config`. Report both runtime and persistent state so mismatches are visible.
 
-```yaml
-sysstat_installed: true|false
-sysstat_timer_present: true|false
-sysstat_timer_oncalendar: "*:00/1"
-sysstat_timer_enabled: true|false
-```
+### 3.7 Firewalld
 
-## 3.18 Timer — Conditional
+Read installed/enabled/active state plus zones/services/ports where collected. Desired state is conditional on customer host-firewall policy; enabled is not always good and disabled is not always good without context.
 
-`SYS_TIMER` is now **Conditional**.
+### 3.8 Time Synchronization
 
-Processing order:
+Parse Chrony configuration and runtime health separately: configured source count, reachable/usable source count, selected source, reach, stratum, offset, synchronized state and timezone. Configured-source count alone is insufficient for grading.
 
-```text
-systemctl list-timers --all
-        ↓
-Inventory timers
-        ↓
-Does timer have an explicit diagnostic policy?
-        ├─ No  → inventory/context only; no finding
-        └─ Yes → evaluate the timer-specific rule
-```
+### 3.9 Kdump
 
-A known Scope rule is `dnf-makecache.timer`, which the Scope recommends disabling because it periodically creates DNF cache and log activity. Other timers are not automatically considered problematic merely because they exist.
+Use systemd state, `/proc/cmdline`, `kexec_crash_size`, `kdump.conf`, panic sysctls, and optional kdumpctl/crash directory evidence. `kdumpctl_status` is optional. Normalize service state, crashkernel, reserved memory, target and panic settings.
 
-## 3.19 Other Settings — only rsyslog and cron
+### 3.10 System Error Logs
 
-`SYS_OTHER_SETTINGS` is now **Full** and contains only two subchecks. The previous history/profile subcheck is removed from the active mapping.
+Search `/var/log/messages*`, dmesg and collected journal output using the configured storage/hardware and generic severity patterns. Store source/timestamp/category/severity/component/matched pattern/message/count. Generic `error`, `warn`, or `fail` matches require contextual filtering and are not automatically C.
 
-### rsyslog
+### 3.11 Base Kernel Parameters
 
-Required file:
+Read effective sysctl values from `sysctl -a` with `/proc/sys` fallback. Normalize the parameters defined by the scope, including dirty ratios, swappiness, ip_forward, somaxconn and tcp_max_syn_backlog. Context-dependent parameters such as ip_forward must retain workload applicability.
 
-```text
-/etc/rsyslog.d/0-ignore-systemd-session-slice.conf
-```
+### 3.12 Default Service Enabled
 
-If absent, the remediation instructs creation of the file and insertion of the configured systemd session-slice filtering rules. The mapping stores the required content as structured expected-content lines rather than executing changes during diagnosis.
+Read systemd unit-files/units and wants symlinks. For each policy service, determine installed/enabled/active/masked state and evaluate applicability first—for example iSCSI, virtualization or storage-related services are judged according to actual feature use.
 
-Required filtering intent:
+### 3.13 Application Core Dump
 
-```text
-if $programname == "systemd" and ($msg contains "User Manager for UID"
-  or $msg contains "user@"
-  or $msg contains "run-user-"
-  or $msg contains "user-runtime-dir@"
-  or $msg contains "slice User Slice of UID"
-  or $msg contains "User runtime directory /run/user/") then stop
+Read limits, coredump configuration, `/etc/systemd/system.conf`, `/proc/sys/kernel/core_pattern`, `/usr/lib/tmpfiles.d/systemd.conf` and `/etc/tmpfiles.d/*`. Normalize soft/hard core limits, `DefaultLimitCORE`, storage path and tmpfiles retention/exclusion. Explicitly inspect `DefaultLimitCORE=infinity` and `/var/lib/systemd/coredump` retention.
 
-if ($programname == "systemd" and $procid != "1") and
-  ($msg contains "slice User Application Slice"
-  or $msg contains "Queued start job for default target Main User Target"
-  or $msg contains "Mark boot as successful after the user"
-  or $msg contains "Daily Cleanup of User's Temporary Directories"
-  or $msg contains "D-Bus User Message Bus Socket"
-  or $msg contains "Create User's Volatile Files and Directories"
-  or $msg contains "Exit the Session"
-  or $msg contains "Reached target"
-  or $msg contains "Stopped target"
-  or $msg contains "Startup finished in") then stop
-```
+### 3.14 Logrotate / sysstat(SAR)
 
-After an administrator applies the remediation, restart rsyslog with:
+Parse logrotate frequency and rotate count. For sysstat, determine package presence first, then inspect `/usr/lib/systemd/system/sysstat-collect.timer`, effective override files, list-timers and optional legacy cron configuration. Normalize effective `OnCalendar`, enabled state and interval; an override takes precedence over the vendor unit.
 
-```text
-systemctl restart rsyslog
-```
+### 3.15 Tuned
 
-The diagnostic/report generator itself does **not** modify the customer host; it only reports the required remediation.
+Read active/recommended/verify profile and systemd service state. Evaluate profile recommendation conditionally using VM/BM, workload role and connected-network context; do not grade profile name without context.
 
-### cron
+### 3.16 IRQ Balance Processing
 
-Required file:
+Read `/etc/sysconfig/irqbalance` and systemd state. Normalize enabled/active state and `IRQBALANCE_ONESHOT`, then compare with the configured policy.
 
-```text
-/etc/crontab
-```
+### 3.17 Timer
 
-Expected setting:
+First inventory `systemctl list-timers --all`. Only timer units with an explicit diagnostic policy are evaluated. `dnf-makecache.timer` is currently a known policy item; unrelated timers are inventory/context only and do not become findings merely because they exist.
 
-```text
-MAILTO=""
-```
+### 3.18 Other Settings — rsyslog / cron only
 
-If the current value is `MAILTO="root"`, remediation is to change it to `MAILTO=""` so cron output is not mailed to the local root mailbox.
+This Full diagnostic contains two subchecks only.
 
-## System error log policy
+- rsyslog: inspect `/etc/rsyslog.d/0-ignore-systemd-session-slice.conf`; validate required filter content. If absent/mismatched, report remediation to create/update it and run `systemctl restart rsyslog` after administrator review/application.
+- cron: inspect `/etc/crontab`; expected `MAILTO=""`. If `MAILTO="root"`, report remediation to change it to an empty value.
 
-`SYS_ERROR_LOG` is Conditional. Sources include `/var/log/messages*`, dmesg and collected journal output. Keyword matches are classified by pattern family and context; a generic `warn/error/fail` match is not automatically grade C.
+The analyzer remains read-only and never changes/restarts the customer host.
 
-## Network 10G applicability
+### 4.1 Bonding
 
-There is no standalone 10G report item. `NET_KERNEL_PARAM` runs only when at least one **physical** NIC is actually connected and operating at >=10Gbps. Installed/capable but disconnected NICs, `Link detected: no`, `NO-CARRIER`, or DOWN interfaces do not qualify. For bonding, physical slave link state is evaluated rather than logical bond speed alone.
+Detect real bonding use from process-scoped `/proc/*/net/bonding/*`, fixed proc paths, NetworkManager profiles/nmcli where available and IP link fallback. Normalize bond count, mode, miimon/LACP, slave count/state and active slave. If bonding is not in use, mark `SKIPPED`.
 
-## Storage scope
+### 4.2 Network Kernel Parameters
 
-Storage report scope contains only Device Mapper Multipath. I/O Scheduler and NFS Options remain excluded.
+Applicability requires at least one physical NIC that is actually connected and operating at 10Gbps or faster: physical NIC=true, speed >=10000 Mbps, link detected, carrier up. Installed/capable but disconnected NICs do not qualify. For bonds, evaluate physical slave links. Only then parse sysctl, softnet_stat and NIC counters and apply the high-speed network tuning policy.
+
+### 4.3 Netstate
+
+Use nmcli when collected, but never require it. Fall back to `ip -s -d link`, address outputs, ethtool and NetworkManager config/journal. Normalize carrier, speed, device state, error/drop counters and NM state if available.
+
+### 5.1 Device Mapper Multipath
+
+Determine actual multipath use before grading. Plugin output presence alone is insufficient. Normalize driver loaded state, map count, WWID, alias, vendor/model, path count, active/failed paths, path policy and features. Vendor-specific recommended settings remain an external/internal policy dependency.
 
 ## Engine contract
 
-1. Resolve evidence through ordered candidate paths/globs.
-2. Validate command output content; file existence alone is not a fact.
-3. Parser emits normalized facts/findings only.
-4. Applicability runs before A/B/C grading.
-5. Conditional items use environment/context and explicit sub-rules.
-6. Missing required evidence becomes internal `SKIPPED`.
-7. Customer-facing output renders only A/B/C reportable results.
-8. Diagnosis is read-only; remediation commands/configuration are report guidance and are never executed against the customer system by the analyzer.
-9. HTML and DOCX use the same result model.
+1. Applicability is evaluated before A/B/C grading.
+2. Missing/unusable evidence becomes internal `SKIPPED`, not customer-visible UNKNOWN.
+3. Parser returns facts only; diagnostic rules consume normalized facts.
+4. Source command failures are retained as evidence notes but do not create positive facts.
+5. Remediation is report guidance only; the analyzer is read-only.
+6. HTML, DOCX and JSON use the same diagnostic result model.
