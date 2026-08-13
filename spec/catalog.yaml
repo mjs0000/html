@@ -1,5 +1,5 @@
-version: '0.3'
-active_diagnostics: 23
+version: '0.4'
+active_diagnostics: 22
 policy:
   customer_grades: [A, B, C]
   missing_evidence_status: SKIPPED
@@ -94,17 +94,8 @@ diagnostics:
   parser: sysctl
   automation: full
   legacy_xlsx: true
-- id: SYS_BOOT_PARAM
-  section: '3.12'
-  source_section: '3.12'
-  category: System
-  title: 부팅 파라미터
-  parser: boot_parameters
-  automation: full
-  policy_state: pending_policy
-  legacy_xlsx: false
 - id: SYS_DEFAULT_SERVICE
-  section: '3.13'
+  section: '3.12'
   source_section: '3.13'
   category: System
   title: Default Service Enabled
@@ -112,7 +103,7 @@ diagnostics:
   automation: conditional
   legacy_xlsx: true
 - id: SYS_APP_COREDUMP
-  section: '3.14'
+  section: '3.13'
   source_section: '3.14'
   category: System
   title: Application Core Dump
@@ -120,7 +111,7 @@ diagnostics:
   automation: full
   legacy_xlsx: true
 - id: SYS_LOGROTATE_SYSSTAT
-  section: '3.15'
+  section: '3.14'
   source_section: '3.15'
   category: System
   title: Logrotate / sysstat(SAR)
@@ -128,7 +119,7 @@ diagnostics:
   automation: full
   legacy_xlsx: true
 - id: SYS_TUNED
-  section: '3.16'
+  section: '3.15'
   source_section: '3.16'
   category: System
   title: Tuned
@@ -136,7 +127,7 @@ diagnostics:
   automation: conditional
   legacy_xlsx: true
 - id: SYS_IRQBALANCE
-  section: '3.17'
+  section: '3.16'
   source_section: '3.17'
   category: System
   title: IRQ Balance Processing
@@ -144,7 +135,7 @@ diagnostics:
   automation: full
   legacy_xlsx: true
 - id: SYS_TIMER
-  section: '3.18'
+  section: '3.17'
   source_section: '3.18'
   category: System
   title: Timer
@@ -152,7 +143,7 @@ diagnostics:
   automation: conditional
   legacy_xlsx: false
 - id: SYS_OTHER_SETTINGS
-  section: '3.19'
+  section: '3.18'
   source_section: '3.19'
   category: System
   title: 기타 설정 (rsyslog / cron)
