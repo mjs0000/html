@@ -1,4 +1,4 @@
-version: '0.2'
+version: '0.3'
 active_diagnostics: 23
 policy:
   customer_grades: [A, B, C]
@@ -16,4 +16,178 @@ diagnostics:
   legacy_xlsx: true
 - id: SYS_LIFECYCLE
   section: '3.2'
-  source
+  source_section: '3.2'
+  category: System
+  title: Life-Cycle
+  parser: lifecycle
+  automation: conditional
+  legacy_xlsx: true
+- id: SYS_BOOT_MODE
+  section: '3.3'
+  source_section: '3.3'
+  category: System
+  title: Boot Mode
+  parser: boot_mode
+  automation: full
+  legacy_xlsx: true
+- id: SYS_FILESYSTEM
+  section: '3.4'
+  source_section: '3.4'
+  category: System
+  title: Filesystem
+  parser: filesystem
+  automation: full
+  legacy_xlsx: true
+- id: SYS_PACKAGE_UPDATE
+  section: '3.5'
+  source_section: '3.5'
+  category: System
+  title: 주요 패키지 업데이트
+  parser: packages
+  automation: conditional
+  legacy_xlsx: true
+- id: SYS_SELINUX
+  section: '3.6'
+  source_section: '3.6'
+  category: System
+  title: SELINUX
+  parser: selinux
+  automation: full
+  legacy_xlsx: true
+- id: SYS_FIREWALLD
+  section: '3.7'
+  source_section: '3.7'
+  category: System
+  title: Firewalld
+  parser: firewalld
+  automation: conditional
+  legacy_xlsx: true
+- id: SYS_TIME_SYNC
+  section: '3.8'
+  source_section: '3.8'
+  category: System
+  title: 시간 동기화
+  parser: chrony
+  automation: full
+  legacy_xlsx: true
+- id: SYS_KDUMP
+  section: '3.9'
+  source_section: '3.9'
+  category: System
+  title: 덤프 수집(Kdump)
+  parser: kdump
+  automation: full
+  legacy_xlsx: true
+- id: SYS_ERROR_LOG
+  section: '3.10'
+  source_section: '3.10'
+  category: System
+  title: 시스템 에러 로그
+  parser: error_log
+  automation: conditional
+  legacy_xlsx: true
+- id: SYS_KERNEL_PARAM
+  section: '3.11'
+  source_section: '3.11'
+  category: System
+  title: 기본 커널 파라미터
+  parser: sysctl
+  automation: full
+  legacy_xlsx: true
+- id: SYS_BOOT_PARAM
+  section: '3.12'
+  source_section: '3.12'
+  category: System
+  title: 부팅 파라미터
+  parser: boot_parameters
+  automation: full
+  policy_state: pending_policy
+  legacy_xlsx: false
+- id: SYS_DEFAULT_SERVICE
+  section: '3.13'
+  source_section: '3.13'
+  category: System
+  title: Default Service Enabled
+  parser: services
+  automation: conditional
+  legacy_xlsx: true
+- id: SYS_APP_COREDUMP
+  section: '3.14'
+  source_section: '3.14'
+  category: System
+  title: Application Core Dump
+  parser: coredump
+  automation: full
+  legacy_xlsx: true
+- id: SYS_LOGROTATE_SYSSTAT
+  section: '3.15'
+  source_section: '3.15'
+  category: System
+  title: Logrotate / sysstat(SAR)
+  parser: logrotate_sysstat
+  automation: full
+  legacy_xlsx: true
+- id: SYS_TUNED
+  section: '3.16'
+  source_section: '3.16'
+  category: System
+  title: Tuned
+  parser: tuned
+  automation: conditional
+  legacy_xlsx: true
+- id: SYS_IRQBALANCE
+  section: '3.17'
+  source_section: '3.17'
+  category: System
+  title: IRQ Balance Processing
+  parser: irqbalance
+  automation: full
+  legacy_xlsx: true
+- id: SYS_TIMER
+  section: '3.18'
+  source_section: '3.18'
+  category: System
+  title: Timer
+  parser: systemd_timer
+  automation: conditional
+  legacy_xlsx: false
+- id: SYS_OTHER_SETTINGS
+  section: '3.19'
+  source_section: '3.19'
+  category: System
+  title: 기타 설정 (rsyslog / cron)
+  parser: other_settings
+  automation: full
+  legacy_xlsx: true
+- id: NET_BONDING
+  section: '4.1'
+  source_section: '4.1'
+  category: Network
+  title: 이중화 (Bonding)
+  parser: bonding
+  automation: conditional
+  legacy_xlsx: true
+- id: NET_KERNEL_PARAM
+  section: '4.2'
+  source_section: '4.3'
+  category: Network
+  title: 네트워크 커널 파라미터
+  parser: network_sysctl
+  automation: conditional
+  legacy_xlsx: true
+- id: NET_NETSTATE
+  section: '4.3'
+  source_section: '4.4'
+  category: Network
+  title: Netstate
+  parser: netstate
+  automation: full
+  legacy_xlsx: false
+- id: STG_MULTIPATH
+  section: '5.1'
+  source_section: '5.2'
+  category: Storage
+  title: Device Mapper Multipath
+  parser: multipath
+  automation: conditional
+  legacy_xlsx: true
