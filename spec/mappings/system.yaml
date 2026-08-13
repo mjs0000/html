@@ -139,6 +139,14 @@ system:
       - etc/default/grub
       - boot/grub2/grub.cfg
       - boot/efi/EFI/*/grub.cfg
+    normalized_fields:
+      - runtime_cmdline_tokens
+      - persistent_grub_tokens
+      - token_value_map
+      - runtime_vs_persistent_diff
+    notes:
+      - 'The current Scope lists Boot Parameters as a report item but does not provide an explicit detailed token/grade policy in the corresponding body section.'
+      - 'Collect and compare runtime /proc/cmdline with persistent GRUB configuration, but keep A/B/C token policy as pending_policy until explicitly defined.'
 
   services:
     candidates:
@@ -152,10 +160,27 @@ system:
       - etc/security/limits.d/*
       - etc/systemd/coredump.conf
       - etc/systemd/coredump.conf.d/*
+      - etc/systemd/system.conf
       - usr/lib/sysctl.d/50-coredump.conf
       - proc/sys/kernel/core_pattern
       - usr/lib/tmpfiles.d/systemd.conf
       - etc/tmpfiles.d/*
+    normalized_fields:
+      - soft_core_limit
+      - hard_core_limit
+      - default_limit_core
+      - core_pattern
+      - coredump_storage
+      - coredump_directory
+      - tmpfiles_retention
+      - tmpfiles_exclusion
+    expected_checks:
+      - path: etc/systemd/system.conf
+        key: DefaultLimitCORE
+        recommended: infinity
+      - path: usr/lib/tmpfiles.d/systemd.conf
+        key: /var/lib/systemd/coredump retention
+        recommended_review: '3d default; consider exclusion or longer retention such as 15d according to policy'
 
   logrotate_sysstat:
     logrotate_candidates:
@@ -166,9 +191,22 @@ system:
     sysstat_candidates:
       - usr/lib/systemd/system/sysstat-collect.timer
       - etc/systemd/system/sysstat.service.wants/sysstat-collect.timer
+      - etc/systemd/system/sysstat-collect.timer.d/*
       - etc/cron.d/sysstat
       - sos_commands/systemd/systemctl_list-timers_--all
       - installed-rpms
+    normalized_fields:
+      - logrotate_frequency
+      - logrotate_rotate_count
+      - sysstat_installed
+      - sysstat_timer_present
+      - sysstat_timer_oncalendar
+      - sysstat_timer_enabled
+    expected_checks:
+      - path: usr/lib/systemd/system/sysstat-collect.timer
+        key: OnCalendar
+        recommended: '*:00/1'
+        scope_default_example: '*:00/10'
 
   tuned:
     candidates:
@@ -190,15 +228,44 @@ system:
       - sos_commands/systemd/systemctl_list-timers_--all
       - usr/lib/systemd/system/*.timer
       - etc/systemd/system/timers.target.wants/*
+    applicability:
+      source: sos_commands/systemd/systemctl_list-timers_--all
+      conditional_after_inventory: true
+    normalized_fields:
+      - timer_name
+      - next_run
+      - last_run
+      - active
+      - enabled
+      - conditionally_relevant
+    notes:
+      - 'First inventory list-timers, then evaluate only timer units that have an explicit diagnostic rule.'
+      - 'dnf-makecache.timer is a known scope rule candidate; other timers are not automatically findings.'
 
   other_settings:
-    history_candidates:
-      - etc/profile
-      - etc/profile.d/*
-    rsyslog_candidates:
-      - etc/rsyslog.conf
-      - etc/rsyslog.d/*
-    cron_candidates:
-      - etc/crontab
-      - etc/cron.d/*
-      - sos_commands/cron/*
+    rsyslog:
+      candidates:
+        - etc/rsyslog.d/0-ignore-systemd-session-slice.conf
+      required_path: etc/rsyslog.d/0-ignore-systemd-session-slice.conf
+      expected_content_lines:
+        - 'if $programname == "systemd" and ($msg contains "User Manager for UID" or $msg contains "user@" or $msg contains "run-user-" or $msg contains "user-runtime-dir@" or $msg contains "slice User Slice of UID" or $msg contains "User runtime directory /run/user/") then stop'
+        - 'if ($programname == "systemd" and $procid != "1") and ($msg contains "slice User Application Slice" or $msg contains "Queued start job for default target Main User Target" or $msg contains "Mark boot as successful after the user" or $msg contains "Daily Cleanup of User''s Temporary Directories" or $msg contains "D-Bus User Message Bus Socket" or $msg contains "Create User''s Volatile Files and Directories" or $msg contains "Exit the Session" or $msg contains "Reached target" or $msg contains "Stopped target" or $msg contains "Startup finished in") then stop'
+      remediation:
+        - 'Create /etc/rsyslog.d/0-ignore-systemd-session-slice.conf when absent.'
+        - 'Insert the configured systemd session-slice filtering rules.'
+        - 'Run: systemctl restart rsyslog'
+    cron:
+      candidates:
+        - etc/crontab
+      required_path: etc/crontab
+      expected_setting:
+        key: MAILTO
+        value: ''
+      remediation:
+        - 'Change MAILTO="root" to MAILTO="" in /etc/crontab.'
+    normalized_fields:
+      - rsyslog_filter_file_present
+      - rsyslog_filter_content_matches
+      - cron_mailto
+    notes:
+      - 'Only rsyslog and cron are active subchecks for SYS_OTHER_SETTINGS.'
