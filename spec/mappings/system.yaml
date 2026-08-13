@@ -133,21 +133,6 @@ system:
       - sos_commands/kernel/sysctl_-a
       - proc/sys/*
 
-  boot_parameters:
-    candidates:
-      - proc/cmdline
-      - etc/default/grub
-      - boot/grub2/grub.cfg
-      - boot/efi/EFI/*/grub.cfg
-    normalized_fields:
-      - runtime_cmdline_tokens
-      - persistent_grub_tokens
-      - token_value_map
-      - runtime_vs_persistent_diff
-    notes:
-      - 'The current Scope lists Boot Parameters as a report item but does not provide an explicit detailed token/grade policy in the corresponding body section.'
-      - 'Collect and compare runtime /proc/cmdline with persistent GRUB configuration, but keep A/B/C token policy as pending_policy until explicitly defined.'
-
   services:
     candidates:
       - sos_commands/systemd/systemctl_list-unit-files
