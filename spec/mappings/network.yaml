@@ -45,6 +45,7 @@ network:
     candidates:
       - sos_commands/kernel/sysctl_-a
       - proc/sys/net/*
+      - proc/sys/vm/min_free_kbytes
     softnet_candidates:
       - proc/*/net/softnet_stat
       - proc/net/softnet_stat
@@ -61,17 +62,53 @@ network:
       - operational_state
       - bond_master
       - netdev_max_backlog
-      - netdev_budget
       - tcp_rmem
       - tcp_wmem
       - rmem_max
       - wmem_max
       - min_free_kbytes
+      - netdev_budget
       - softnet_drops
       - softnet_time_squeeze
+    parameter_policy:
+      net.core.netdev_max_backlog:
+        description: '커널이 처리하는 속도보다 network interface에 들어오는 속도가 빠를 경우 network interface단에서 임시 저장할 수 있는 최대 패킷 수. 10000 초과 값은 도움이 되지 않음.'
+        default: 1000
+        operator: gte
+        recommended: 2000
+      net.ipv4.tcp_rmem:
+        description: 'TCP 소켓에 사용되는 수신 버퍼 크기 (Min, Def, Max).'
+        default: [4096, 131072, 6291456]
+        operator: exact_triplet
+        recommended: [4096, 87380, 16777216]
+      net.ipv4.tcp_wmem:
+        description: 'TCP 소켓에 사용되는 전송 버퍼 크기 (Min, Def, Max).'
+        default: [4096, 16384, 4194304]
+        operator: exact_triplet
+        recommended: [4096, 16384, 16777216]
+      net.core.rmem_max:
+        description: '모든 소켓 유형(TCP 포함)에 대한 최대 수신 소켓 버퍼.'
+        default: 212992
+        operator: gte
+        recommended: 16777216
+      net.core.wmem_max:
+        description: '모든 소켓 유형(TCP 포함)에 대한 최대 전송 소켓 버퍼.'
+        default: 212992
+        operator: gte
+        recommended: 16777216
+      vm.min_free_kbytes:
+        description: '커널 메모리 예약 파라미터. 인터페이스가 여러 개인 대형 시스템에서 최소 1GiB 또는 최대 5% RAM 수준 검토.'
+        default: system_calculated
+        operator: gte
+        recommended: 1024000
+      net.core.netdev_budget:
+        description: 'SoftIRQ가 CPU에서 실행되는 시간을 조정. 1000 초과 값은 도움이 되지 않음.'
+        default: 300
+        operator: eq
+        recommended: 300
     notes:
-      - 'This diagnostic is applicable only when at least one physical NIC has an active 10Gbps-or-faster link.'
-      - 'NIC capability/presence alone is insufficient. The parser must confirm actual speed and an active link/carrier from collected runtime evidence.'
+      - 'Apply this policy only when at least one physical NIC has an active 10Gbps-or-faster link.'
+      - 'NIC capability/presence alone is insufficient. Confirm actual speed and active link/carrier from runtime evidence.'
       - 'A 10Gbps-or-faster NIC that is installed but disconnected, Link detected: no, NO-CARRIER, or DOWN does not make this diagnostic applicable.'
       - 'Bond slave interfaces may satisfy applicability when their physical link is up; evaluate physical slave links rather than the logical bond interface speed alone.'
       - 'If no connected 10Gbps-or-faster physical NIC is detected, mark the diagnostic internally SKIPPED and do not render it.'
@@ -80,11 +117,46 @@ network:
     candidates:
       - sos_commands/networkmanager/nmcli_general_status
       - sos_commands/networkmanager/nmcli_dev
+      - sos_commands/networkmanager/nmcli_con
       - sos_commands/networkmanager/nmcli_con_show_--active
+      - sos_commands/networkmanager/nmcli_con_show_*
       - sos_commands/networkmanager/journalctl_--no-pager_--unit_NetworkManager
       - etc/NetworkManager/NetworkManager.conf
+      - etc/NetworkManager/system-connections/*
+      - sos_commands/systemd/systemctl_list-unit-files
+      - sos_commands/systemd/systemctl_list-units
       - sos_commands/networking/ip_-s_-d_link
       - sos_commands/networking/ip_-s_link
       - sos_commands/networking/ip_-d_address
       - sos_commands/networking/ip_-o_addr
       - sos_commands/networking/ethtool_*
+    normalized_fields:
+      - networkmanager_installed
+      - networkmanager_enabled
+      - networkmanager_active
+      - networkmanager_in_use
+      - nmcli_evidence_available
+      - active_connections
+      - connection_profiles
+      - interface_name
+      - connection_name
+      - connection_type
+      - ipv4_method
+      - ipv4_addresses
+      - ipv4_gateway
+      - ipv4_dns
+      - ipv6_method
+      - mtu
+      - autoconnect
+      - carrier
+      - operstate
+      - speed_mbps
+      - rx_errors
+      - rx_dropped
+      - tx_errors
+      - tx_dropped
+    processing:
+      - 'First determine whether NetworkManager is installed/enabled/active and whether it is actually managing network interfaces.'
+      - 'If NetworkManager is in use, report collected connection/profile settings from nmcli and /etc/NetworkManager/system-connections/*.'
+      - 'If nmcli output is absent, use NetworkManager profiles/config plus ip/ethtool evidence; absence of nmcli alone is not a failure.'
+      - 'If NetworkManager is not in use, display that state and use ip/ethtool only for current link facts; do not invent NetworkManager profile settings.'
