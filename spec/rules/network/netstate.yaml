@@ -1,0 +1,70 @@
+id: NET_NETSTATE
+category: Network
+section: "4.3"
+source_section: "4.4"
+title: Netstate
+parser: netstate
+automation: full
+networkmanager_detection:
+  normalized_fields:
+    - networkmanager_installed
+    - networkmanager_enabled
+    - networkmanager_active
+    - networkmanager_in_use
+    - nmcli_evidence_available
+  preferred_evidence:
+    - sos_commands/networkmanager/nmcli_general_status
+    - sos_commands/networkmanager/nmcli_dev
+    - sos_commands/networkmanager/nmcli_con_show_--active
+    - etc/NetworkManager/system-connections/*
+    - etc/NetworkManager/NetworkManager.conf
+  fallback_evidence:
+    - sos_commands/networking/ip_-s_-d_link
+    - sos_commands/networking/ip_-s_link
+    - sos_commands/networking/ip_-d_address
+    - sos_commands/networking/ip_-o_addr
+    - sos_commands/networking/ethtool_*
+when_networkmanager_in_use:
+  display_connection_fields:
+    - connection_name
+    - interface_name
+    - connection_type
+    - ipv4_method
+    - ipv4_addresses
+    - ipv4_gateway
+    - dns_servers
+    - ipv6_method
+    - mtu
+    - autoconnect
+  display_runtime_fields:
+    - carrier
+    - operational_state
+    - speed_mbps
+    - rx_errors
+    - rx_dropped
+    - tx_errors
+    - tx_dropped
+when_networkmanager_not_in_use:
+  display:
+    networkmanager_status: not_in_use
+    runtime_link_fields:
+      - interface_name
+      - carrier
+      - operational_state
+      - speed_mbps
+      - rx_errors
+      - rx_dropped
+      - tx_errors
+      - tx_dropped
+policy:
+  nmcli_missing_is_failure: false
+  fabricate_missing_networkmanager_values: false
+  grade_policy_state: pending_policy
+missing_data:
+  status: SKIPPED
+  include_in_report: false
+  reason: NetworkManager usage and current link state could not be determined from usable evidence.
+notes:
+  - First determine whether NetworkManager is actually managing interfaces.
+  - If NetworkManager is used, report collected configuration values; if it is not used, report that fact and current link state from ip/ethtool evidence.
+  - No A/B/C thresholds for link error/drop counters were supplied, so retain them as displayed facts until policy is defined.
