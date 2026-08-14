@@ -3,13 +3,29 @@ category: System
 section: "3.6"
 title: SELINUX
 parser: selinux
+recommended_state: disabled
+display:
+  always_show:
+    - runtime_mode
+    - configured_mode
+    - runtime_config_mismatch
 assessment:
-  Disabled:
+  disabled:
+    internal_status: PASS
     grade: A
-  Permissive:
+    summary: SELinux is disabled as recommended by the current RockPLACE policy.
+  permissive:
+    internal_status: WARN
     grade: B
-  Enforcing:
+    summary: SELinux is Permissive; the current RockPLACE recommendation is disabled.
+  enforcing:
+    internal_status: WARN
     grade: B
-  UNKNOWN:
-    grade: UNKNOWN
-note: Initial grading mirrors the supplied scope document and must be reviewed before production use.
+    summary: SELinux is Enforcing; the current RockPLACE recommendation is disabled.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
+  reason: SELinux runtime/configured state could not be determined from usable evidence.
+recommendation:
+  - Keep the detected runtime and persistent configuration visible in the report even when it differs from the recommendation.
+  - Recommended state for this diagnostic policy is disabled.
