@@ -1,9 +1,13 @@
-version: '0.4'
+version: '0.5'
 active_diagnostics: 22
 policy:
   customer_grades: [A, B, C]
   missing_evidence_status: SKIPPED
   render_skipped: false
+  render_defaults:
+    html: true
+    docx: true
+    json: true
 
 diagnostics:
 - id: SYS_HW_CERT
@@ -13,6 +17,10 @@ diagnostics:
   title: 하드웨어 인증
   parser: hardware
   automation: conditional
+  render:
+    html: false
+    docx: true
+    json: true
   legacy_xlsx: true
 - id: SYS_LIFECYCLE
   section: '3.2'
@@ -21,6 +29,10 @@ diagnostics:
   title: Life-Cycle
   parser: lifecycle
   automation: conditional
+  render:
+    html: false
+    docx: true
+    json: true
   legacy_xlsx: true
 - id: SYS_BOOT_MODE
   section: '3.3'
@@ -45,6 +57,10 @@ diagnostics:
   title: 주요 패키지 업데이트
   parser: packages
   automation: conditional
+  render:
+    html: false
+    docx: true
+    json: true
   legacy_xlsx: true
 - id: SYS_SELINUX
   section: '3.6'
