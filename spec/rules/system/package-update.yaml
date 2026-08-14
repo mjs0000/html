@@ -1,0 +1,44 @@
+id: SYS_PACKAGE_UPDATE
+category: System
+section: "3.5"
+title: 주요 패키지 업데이트
+parser: packages
+render:
+  html: false
+  docx: true
+  json: true
+package_groups:
+  kernel:
+    include_names:
+      - kernel
+      - kernel-core
+      - kernel-modules
+      - kernel-modules-core
+  openssl:
+    include_names:
+      - openssl
+      - openssl-libs
+  openssh:
+    include_names:
+      - openssh
+      - openssh-clients
+      - openssh-server
+normalized_fields:
+  - package_group
+  - package_name
+  - epoch
+  - version
+  - release
+  - arch
+  - installed_nevra
+  - advisory_status
+policy:
+  assessment_source: advisory_reference
+  absence_of_updateinfo_is_failure: false
+  do_not_assess_other_packages: true
+  unknown_reference:
+    status: SKIPPED
+    include_in_report: false
+notes:
+  - The parser may read the complete installed package inventory, but only kernel, openssl, and openssh package families become reportable facts for this diagnostic.
+  - Latest/security update status must come from collected valid updateinfo or an authoritative advisory/reference provider; do not infer it from version strings alone.
