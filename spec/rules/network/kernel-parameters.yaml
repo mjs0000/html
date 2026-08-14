@@ -1,0 +1,68 @@
+id: NET_KERNEL_PARAM
+category: Network
+section: "4.2"
+source_section: "4.3"
+title: 네트워크 커널 파라미터
+parser: network_sysctl
+automation: conditional
+applicability:
+  all:
+    - physical_nic == true
+    - speed_mbps >= 10000
+    - link_detected == true
+    - carrier_up == true
+  otherwise:
+    status: SKIPPED
+    include_in_report: false
+  notes:
+    - Evaluate physical slave NICs in bonding environments; do not rely only on logical bond speed.
+checks:
+  - parameter: net.core.netdev_max_backlog
+    description: Maximum packet backlog when packets arrive faster than the kernel can process them.
+    default: 1000
+    operator: gte
+    recommended: 2000
+    advisory_upper_note: Values above 10000 are not considered useful by this policy.
+  - parameter: net.ipv4.tcp_rmem
+    description: TCP receive buffer sizes as Min Default Max.
+    default: [4096, 131072, 6291456]
+    operator: exact_triplet
+    recommended: [4096, 87380, 16777216]
+  - parameter: net.ipv4.tcp_wmem
+    description: TCP transmit buffer sizes as Min Default Max.
+    default: [4096, 16384, 4194304]
+    operator: exact_triplet
+    recommended: [4096, 16384, 16777216]
+  - parameter: net.core.rmem_max
+    description: Maximum receive socket buffer for all socket types.
+    default: 212992
+    operator: gte
+    recommended: 16777216
+  - parameter: net.core.wmem_max
+    description: Maximum transmit socket buffer for all socket types.
+    default: 212992
+    operator: gte
+    recommended: 16777216
+  - parameter: vm.min_free_kbytes
+    description: Reserved kernel memory threshold for applicable large or multi-interface high-speed systems.
+    default: system_calculated
+    operator: gte
+    recommended: 1024000
+  - parameter: net.core.netdev_budget
+    description: Controls work processed by network SoftIRQ per polling cycle.
+    default: 300
+    operator: eq
+    recommended: 300
+grading:
+  all_checks_pass:
+    internal_status: PASS
+    grade: A
+  any_check_fails:
+    internal_status: WARN
+    grade: B
+  missing_required_parameter:
+    internal_status: SKIPPED
+    include_in_report: false
+notes:
+  - No C-grade threshold has been defined for these tuning values; do not invent one.
+  - Report current and recommended values for every evaluated parameter.
