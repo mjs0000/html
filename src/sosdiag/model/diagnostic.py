@@ -2,7 +2,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Grade = Literal["A", "B", "C"]
 InternalStatus = Literal["PASS", "WARN", "FAIL", "SKIPPED"]
 
 
@@ -22,7 +21,6 @@ class DiagnosticResult(BaseModel):
     section: str
     title: str
     status: InternalStatus
-    grade: Grade | None = None
     value: str | None = None
     definition: str | None = None
     summary: str | None = None
@@ -47,5 +45,5 @@ class HostReport(BaseModel):
         return [
             item
             for item in self.diagnostics
-            if item.include_in_report and item.status != "SKIPPED" and item.grade is not None
+            if item.include_in_report and item.status != "SKIPPED"
         ]
