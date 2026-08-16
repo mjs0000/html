@@ -5,10 +5,10 @@ title: Boot Mode
 parser: boot_mode
 assessment:
   UEFI:
-    grade: A
+    status: PASS
     message: UEFI environment is in use.
   BIOS:
-    grade: B
+    status: WARN
     message: Legacy BIOS environment is in use.
 missing_data:
   status: SKIPPED
@@ -18,4 +18,16 @@ recommendation:
   - New installations should use UEFI.
   - Existing Legacy BIOS systems should not be converted solely for this diagnostic item.
 evidence_required:
-  - current_boot_mode
+  - path: sys/firmware/efi
+    check: directory_exists
+    meaning:
+      exists: UEFI
+      absent: BIOS
+supporting_evidence:
+  - sos_commands/boot/efibootmgr_-v
+  - sos_commands/boot/ls_-lanR_.sys.firmware
+  - sos_commands/boot/ls_-alZR_.sys.firmware
+  - sos_commands/boot/mokutil_--sb-state
+notes:
+  - '/sys/firmware/efi directory presence is the primary boot-mode discriminator.'
+  - 'efibootmgr and firmware listings are supporting evidence, not the primary decision source.'
