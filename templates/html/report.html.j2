@@ -13,6 +13,8 @@
     .host-detail { margin: 18px 0 28px; padding-top: 10px; border-top: 1px solid #ddd; }
     .type-group { margin-top: 20px; }
     .reference-link { word-break: break-all; }
+    .target-systems th, .target-systems td { text-align: center; }
+    .target-systems td:nth-child(3), .target-systems td:nth-child(4) { text-align: left; }
   </style>
 </head>
 <body>
@@ -46,10 +48,18 @@
       {% endfor %}
     </table>
 
-    <h3>1.4. 대상 시스템</h3>
-    <table><tr><th>No</th><th>Hostname</th><th>구분</th><th>H/W Model</th><th>RHEL Version</th></tr>
+    <h3>1.4. 구조진단 대상 시스템</h3>
+    <p>본 구조진단에 포함된 모든 sosreport의 대상 시스템을 Hostname 기준으로 표시합니다.</p>
+    <table class="target-systems">
+      <tr><th>No</th><th>구분</th><th>hostname</th><th>H/W Model</th><th>Version</th></tr>
       {% for host in hosts %}
-      <tr><td>{{ loop.index }}</td><td><strong>{{ host.hostname }}</strong></td><td>{{ host.system_type or '-' }}</td><td>{{ host.hardware_model or '-' }}</td><td>{{ host.os_version or '-' }}</td></tr>
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %}</td>
+        <td><strong>{{ host.hostname }}</strong></td>
+        <td>{{ host.hardware_model or '-' }}</td>
+        <td>{{ host.os_version or '-' }}</td>
+      </tr>
       {% endfor %}
     </table>
   </section>
