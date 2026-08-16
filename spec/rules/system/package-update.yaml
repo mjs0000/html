@@ -32,8 +32,17 @@ normalized_fields:
   - arch
   - installed_nevra
   - advisory_status
+  - external_reference_source
+  - external_reference_version
+  - external_reference_checked_at
 policy:
-  assessment_source: advisory_reference
+  assessment_source: external_authoritative_reference
+  external_reference_required: true
+  accepted_reference_types:
+    - Red Hat security advisory
+    - Red Hat package errata/advisory metadata
+    - Red Hat supported package repository metadata
+  collected_updateinfo_may_support_assessment: true
   absence_of_updateinfo_is_failure: false
   do_not_assess_other_packages: true
   unknown_reference:
@@ -41,4 +50,6 @@ policy:
     include_in_report: false
 notes:
   - The parser may read the complete installed package inventory, but only kernel, openssl, and openssh package families become reportable facts for this diagnostic.
-  - Latest/security update status must come from collected valid updateinfo or an authoritative advisory/reference provider; do not infer it from version strings alone.
+  - Installed version strings alone must never determine PASS/WARN/FAIL.
+  - Final status requires comparison with an external authoritative Red Hat reference appropriate to the host RHEL major/minor version and architecture.
+  - Collected dnf/yum updateinfo is supporting evidence but does not replace the external comparison when the reference is unavailable or stale.
