@@ -1,0 +1,33 @@
+id: SYS_TIMER
+category: System
+section: "3.17"
+title: Timer
+parser: systemd_timer
+status_model:
+  values: [PASS, WARN, FAIL, SKIPPED]
+evidence:
+  inventory:
+    - sos_commands/systemd/systemctl_list-timers_--all
+  timer_units:
+    - usr/lib/systemd/system/*.timer
+    - etc/systemd/system/timers.target.wants/*
+  sysstat_collect:
+    - usr/lib/systemd/system/sysstat-collect.timer
+    - etc/systemd/system/sysstat.service.wants/sysstat-collect.timer
+    - etc/systemd/system/sysstat-collect.timer.d/*
+processing:
+  - 'Inventory timers first using systemctl list-timers --all output.'
+  - 'Evaluate only timer units with an explicit policy.'
+  - 'For sysstat-collect.timer, preserve the effective OnCalendar value and whether an override exists.'
+normalized_fields:
+  - timer_name
+  - next_run
+  - last_run
+  - active
+  - enabled
+  - on_calendar
+  - override_present
+  - conditionally_relevant
+missing_data:
+  status: SKIPPED
+  include_in_report: false
