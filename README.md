@@ -17,7 +17,9 @@ Browser
 
 Report metadata such as customer, execution period, sales representative, customer contact, and technical engineers is entered separately from sosreport data.
 
-Customer-facing diagnostic grades are `A`, `B`, and `C`. If required sosreport evidence is insufficient, the item is retained internally as `SKIPPED` and is omitted from the customer report by default.
+Diagnostic results use `PASS`, `WARN`, `FAIL`, and `SKIPPED`. A/B/C grades are not used. If required sosreport evidence is insufficient, the item is retained internally as `SKIPPED` and is omitted from the customer report by default.
+
+For multi-host diagnostics, hostname is the primary report key. The report is designed to compare at least five or more RHEL hosts in one diagnostic section.
 
 ## Podman quick start
 
@@ -62,8 +64,11 @@ The repository contains a runnable FastAPI/Podman web skeleton with:
 - persistent upload/output directories
 - health endpoint at `/health`
 - actual downloadable HTML and DOCX files for validating the full browser/container/output workflow
+- SELinux parser/diagnostic proof of concept with version-specific RHEL handling
 
-The current generated HTML/DOCX content is a **workflow-validation report**, not the final diagnostic report. It contains entered report metadata and uploaded sosreport filenames. The production sosreport parser, full diagnostic rule set, A/B/C evaluation, aggregation, and final RockPLACE report rendering are the next implementation phase.
+SELinux currently uses runtime state, `/etc/selinux/config`, RHEL major-version evidence, and `/proc/cmdline`. For RHEL 9 and later, `/proc/cmdline` is required and the exact `selinux=0` token is checked before the disabled policy can be considered satisfied.
+
+The current generated HTML/DOCX content is still a **workflow-validation report**, not the final diagnostic report. The production archive reader, full diagnostic rule set, multi-host aggregation, and final RockPLACE report rendering are the next implementation phase.
 
 ## Project goals
 
