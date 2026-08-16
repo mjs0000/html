@@ -3,6 +3,15 @@
 <head>
   <meta charset="utf-8">
   <title>{{ metadata.report.title }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #222; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 24px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f4f6f8; }
+    code { white-space: pre-wrap; word-break: break-all; }
+    .status { font-weight: 700; }
+    .host-detail { margin: 18px 0 28px; padding-top: 10px; border-top: 1px solid #ddd; }
+  </style>
 </head>
 <body>
   <header>
@@ -36,37 +45,79 @@
     </table>
 
     <h3>1.4. 대상 시스템</h3>
-    <table><tr><th>No</th><th>구분</th><th>Hostname</th><th>H/W Model</th><th>Version</th></tr>
+    <table><tr><th>No</th><th>Hostname</th><th>구분</th><th>H/W Model</th><th>RHEL Version</th></tr>
       {% for host in hosts %}
-      <tr><td>{{ loop.index }}</td><td>{{ host.system_type or '-' }}</td><td>{{ host.hostname }}</td><td>{{ host.hardware_model or '-' }}</td><td>{{ host.os_version or '-' }}</td></tr>
+      <tr><td>{{ loop.index }}</td><td><strong>{{ host.hostname }}</strong></td><td>{{ host.system_type or '-' }}</td><td>{{ host.hardware_model or '-' }}</td><td>{{ host.os_version or '-' }}</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+
+  <section id="selinux-summary">
+    <h2>2. SELinux 호스트별 진단 요약</h2>
+    <p>Hostname을 기준으로 여러 RHEL 시스템의 SELinux 상태를 비교합니다. RHEL 9 이상은 /proc/cmdline의 selinux=0 여부를 필수 확인합니다.</p>
+    <table>
+      <tr>
+        <th>Hostname</th>
+        <th>RHEL</th>
+        <th>Runtime</th>
+        <th>/etc/selinux/config</th>
+        <th>/proc/cmdline selinux=0</th>
+        <th>Status</th>
+        <th>검토 의견</th>
+      </tr>
+      {% for host in hosts %}
+        {% for item in host.diagnostics %}
+          {% if item.id == 'SYS_SELINUX' %}
+          <tr>
+            <td><strong>{{ host.hostname }}</strong></td>
+            <td>{{ item.current_values.get('rhel_major', host.os_version or '-') }}</td>
+            <td>{{ item.current_values.get('runtime_mode') or '-' }}</td>
+            <td>{{ item.current_values.get('configured_mode') or '-' }}</td>
+            <td>
+              {% if item.current_values.get('rhel_major', 0) >= 9 %}
+                {% if item.current_values.get('kernel_selinux_disabled') is sameas true %}있음{% elif item.current_values.get('kernel_selinux_disabled') is sameas false %}없음{% else %}확인 불가{% endif %}
+              {% else %}
+                N/A
+              {% endif %}
+            </td>
+            <td class="status">{{ item.status }}</td>
+            <td>{{ item.summary or '-' }}</td>
+          </tr>
+          {% endif %}
+        {% endfor %}
       {% endfor %}
     </table>
   </section>
 
   <section id="details">
-    <h2>2. 상세 Report</h2>
+    <h2>3. Hostname별 상세 Report</h2>
     {% for host in hosts %}
-      <section>
-        <h3>{{ host.hostname }}</h3>
-        {% for item in host.reportable_diagnostics() %}
-        <article>
-          <h4>{{ item.section }}. {{ item.title }}</h4>
-          {% if item.definition %}<p>{{ item.definition }}</p>{% endif %}
-          <p><strong>평가:</strong> {{ item.grade }}</p>
-          {% if item.summary %}<h5>검토 의견</h5><p>{{ item.summary }}</p>{% endif %}
-          {% if item.findings %}<h5>점검 내역</h5><ul>{% for f in item.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
-          {% for table in item.tables %}
-          <table>
-            <tr>{% for col in table.columns %}<th>{{ col }}</th>{% endfor %}</tr>
-            {% for row in table.rows %}<tr>{% for col in table.columns %}<td>{{ row.get(col, '-') }}</td>{% endfor %}</tr>{% endfor %}
-          </table>
-          {% endfor %}
-          {% if item.recommendations %}<h5>권장 사항</h5><ul>{% for r in item.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
-          {% if item.remediation %}<h5>조치해야 할 사항</h5><ul>{% for r in item.remediation %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
-          {% if item.evidence %}
-          <details><summary>Evidence</summary><ul>{% for e in item.evidence %}<li><code>{{ e.source }}</code>: {{ e.detail }}</li>{% endfor %}</ul></details>
+      <section class="host-detail">
+        <h3>{{ host.hostname }}{% if host.os_version %} — {{ host.os_version }}{% endif %}</h3>
+        {% for item in host.diagnostics %}
+          {% if item.id == 'SYS_SELINUX' %}
+          <article>
+            <h4>{{ item.section }}. {{ item.title }} — <span class="status">{{ item.status }}</span></h4>
+            {% if item.summary %}<h5>검토 의견</h5><p>{{ item.summary }}</p>{% endif %}
+
+            <h5>현재 상태</h5>
+            <table>
+              <tr><th>RHEL Major</th><td>{{ item.current_values.get('rhel_major') or '-' }}</td></tr>
+              <tr><th>Runtime</th><td>{{ item.current_values.get('runtime_mode') or '-' }}</td></tr>
+              <tr><th>Configuration</th><td>{{ item.current_values.get('configured_mode') or '-' }}</td></tr>
+              <tr><th>Runtime/Config 불일치</th><td>{{ item.current_values.get('runtime_config_mismatch') if item.current_values.get('runtime_config_mismatch') is not none else '-' }}</td></tr>
+              <tr><th>selinux=0</th><td>{{ item.current_values.get('kernel_selinux_disabled') if item.current_values.get('kernel_selinux_disabled') is not none else '-' }}</td></tr>
+              <tr><th>/proc/cmdline</th><td><code>{{ item.current_values.get('kernel_cmdline') or '-' }}</code></td></tr>
+            </table>
+
+            {% if item.findings %}<h5>Findings</h5><ul>{% for f in item.findings %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+            {% if item.recommendations %}<h5>권장 사항</h5><ul>{% for r in item.recommendations %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+            {% if item.remediation %}<h5>조치해야 할 사항</h5><ul>{% for r in item.remediation %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+            {% if item.evidence %}
+            <details><summary>Evidence 상세 보기</summary><ul>{% for e in item.evidence %}<li><code>{{ e.source }}</code>: {{ e.detail }}</li>{% endfor %}</ul></details>
+            {% endif %}
+          </article>
           {% endif %}
-        </article>
         {% endfor %}
       </section>
     {% endfor %}
