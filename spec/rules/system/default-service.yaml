@@ -1,0 +1,105 @@
+id: SYS_DEFAULT_SERVICE
+category: System
+section: "3.12"
+title: Default Service Enabled
+parser: services
+status_model:
+  values: [PASS, WARN, FAIL, SKIPPED]
+default_target:
+  evidence:
+    - etc/systemd/system/default.target
+  check: symlink_target
+  normalized_field: default_target_link
+  notes:
+    - 'Record the symbolic-link destination of /etc/systemd/system/default.target.'
+    - 'Do not infer target solely from file presence; preserve the resolved link target as evidence.'
+service_evidence:
+  primary:
+    - sos_commands/systemd/systemctl_list-unit-files
+    - sos_commands/systemd/systemctl_list-units
+  supporting:
+    - etc/systemd/system/*.wants/*
+policy:
+  - name: iscsi.service
+    description: iscsi 장치를 검색하거나 로그인하는 서비스
+    recommendation: iscsi 미 사용시 Disable
+    conditional: iscsi_in_use
+  - name: iscsi-onboot.service
+    description: iscsi 장치를 검색하거나 로그인하는 서비스
+    recommendation: iscsi 미 사용시 Disable
+    conditional: iscsi_in_use
+  - name: libstoragemgmt.service
+    description: 다양한 스토리지 관리를 위한 개발 API 응용프로그램
+    recommendation: 개발 API를 사용하여 스토리지 어레이 미 관리시 Disable
+    conditional: storage_array_management_in_use
+  - name: nis-domainname.service
+    description: /etc/sysconfig/network에서 NIS DomainName을 읽거나 설정하는 서비스
+    recommendation: Disable
+  - name: nvmefc-boot-connections.service
+    description: SAN용 NVMe 장치를 검색 및 마운트 시도
+    recommendation: SAN용 NVMe 미 사용시 Disable
+    conditional: nvme_fc_in_use
+  - name: ostree-remount.service
+    description: OSTree Remount OS / Bind Mounts
+    recommendation: 재부팅 시 간혹 emergency mode로 빠지는 문제로 Disable
+  - name: qemu-guest-agent.service
+    description: guest operating system using libvirt
+    recommendation: KVM 기반 VM이 아닐 시 Disable
+    conditional: kvm_guest
+  - name: libvirtd.service
+    description: KVM 및 가상화 환경을 사용하는 서비스
+    recommendation: KVM, 가상화 환경 미사용시 Disable
+    conditional: virtualization_in_use
+  - name: ksm.service
+    description: 가상화 환경에서 메모리 밀도를 향상하기 위한 서비스
+    recommendation: KVM, 가상화 환경 미사용시 Disable
+    conditional: virtualization_in_use
+  - name: ksmtuned.service
+    description: 가상화 환경에서 메모리 밀도를 향상하기 위한 서비스
+    recommendation: KVM, 가상화 환경 미사용시 Disable
+    conditional: virtualization_in_use
+  - name: spice-vdagentd.service
+    description: KVM 및 가상화에서 spice 원격을 제공하는 서비스
+    recommendation: KVM, 가상화 환경에서 spice client 미사용시 Disable
+    conditional: spice_in_use
+  - name: bluetooth.service
+    description: Bluetooth 기능을 제공하는 서비스
+    recommendation: Disable
+  - name: cups.service
+    description: 프린트 기능을 제공하는 서비스
+    recommendation: Disable
+  - name: atd.service
+    description: crond과 같이 스케줄링을 제공하는 서비스
+    recommendation: Disable
+  - name: wpa_supplicant.service
+    description: WPA, WPA2, WPA3 등 무선 인증방식을 지원하는 서비스
+    recommendation: Disable
+  - name: avahi-daemon.service
+    description: 로컬 네트워크에 연결된 장치가 기능과 함께 IP 주소를 브로드캐스트하는 서비스
+    recommendation: Disable
+  - name: mdmonitor.service
+    description: software RAID 모니터링 및 매니지먼트 서비스
+    recommendation: Disable
+  - name: ModemManager.service
+    description: modem을 관리하는 서비스
+    recommendation: Disable
+  - name: rhsmcertd.service
+    description: Red Hat 제품 Subscription을 위한 인증서 갱신 및 관련 지원 서비스
+    recommendation: Disable
+  - name: rtkit-daemon.service
+    description: 요청 시 사용자 프로세스/스레드의 스케줄링 정책을 SCHED_RR로 변경하는 D-Bus 시스템 서비스
+    recommendation: Disable
+  - name: selinux-autorelabel-mark.service
+    description: SELinux Re-Label 확인 서비스
+    recommendation: Disable
+  - name: vdo.service
+    description: VDO 볼륨에서 압축 및 중복 제거를 제공하는 서비스
+    recommendation: VDO 미 사용시 Disable
+    conditional: vdo_in_use
+assessment:
+  - 'For unconditional Disable entries, enabled or active state becomes a finding.'
+  - 'For conditional entries, determine workload/applicability first; service state alone must not be treated as a finding.'
+  - 'Preserve installed, enabled, active, masked and unit-file state when available.'
+missing_data:
+  status: SKIPPED
+  include_in_report: false
