@@ -71,22 +71,38 @@ system:
       - 'Do not render unrelated installed packages as package-update findings.'
 
   selinux:
-    candidates:
-      - sos_commands/selinux/sestatus
+    version_candidates:
+      - etc/redhat-release
+      - etc/os-release
+    runtime_candidates:
       - sos_commands/selinux/getenforce
+      - sos_commands/selinux/sestatus
+    config_candidates:
       - etc/selinux/config
+    kernel_cmdline_candidates:
+      - proc/cmdline
     recommended_state: disabled
+    rhel_9_plus:
+      required_evidence:
+        - proc/cmdline
+      required_kernel_parameter: selinux=0
     normalized_fields:
+      - rhel_major
       - runtime_mode
       - configured_mode
-      - policy_name
-      - mode_mismatch
+      - runtime_config_mismatch
+      - kernel_cmdline
+      - kernel_selinux_disabled
     display_policy:
+      primary_key: hostname
       always_display_detected_state: true
+      always_display_kernel_cmdline_for_rhel_9_plus: true
       recommended_label: disabled
     notes:
-      - 'Disabled is the RockPLACE recommended state for this diagnostic.'
-      - 'Enforcing and Permissive are still displayed as detected runtime/configured states rather than hidden.'
+      - 'A/B/C grades are not used. SELinux results use PASS/WARN/FAIL/SKIPPED.'
+      - 'For RHEL 9 and later, /proc/cmdline must be collected and the exact selinux=0 token checked.'
+      - 'For RHEL 9 and later, /etc/selinux/config alone must not produce PASS when /proc/cmdline is missing.'
+      - 'Runtime and persistent configuration remain visible as supporting evidence.'
 
   firewalld:
     candidates:
@@ -175,7 +191,7 @@ system:
     notes:
       - 'Equivalent intent to the scope egrep keyword scan; implement in Python rather than shelling out.'
       - 'Generic words such as error/warn/fail require contextual filtering to reduce false positives.'
-      - 'Finding a keyword is evidence for conditional assessment, not an automatic C grade.'
+      - 'Finding a keyword is evidence for conditional assessment, not an automatic FAIL.'
 
   kernel_parameters:
     candidates:
