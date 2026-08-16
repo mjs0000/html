@@ -1,0 +1,53 @@
+id: SYS_HW_CERT
+category: System
+section: "3.1"
+title: 하드웨어 인증
+parser: hardware
+status_model:
+  values: [PASS, WARN, FAIL, SKIPPED]
+evidence:
+  primary:
+    - sos_commands/hardware/dmidecode
+  supporting:
+    - sos_commands/processor/lscpu
+    - sos_commands/pci/lspci_-nnvv
+normalized_fields:
+  - system_type
+  - manufacturer
+  - product_name
+  - rhel_version
+  - certification_scope
+  - reference_name
+  - reference_url
+  - reference_checked_at
+assessment:
+  - 'Classify each host by Type first: Physical or Virtual.'
+  - 'For Physical systems, compare manufacturer/product and installed RHEL version with an authoritative Red Hat hardware certification reference.'
+  - 'For Virtual systems, keep the virtualization type visible and use the applicable Red Hat virtualization certification reference when sufficient hypervisor context is available.'
+  - 'Confirmed certification for the installed RHEL version is PASS.'
+  - 'Product identified but installed RHEL certification range is not confirmed or appears outside the confirmed range is WARN.'
+  - 'Product/platform context cannot be identified reliably is SKIPPED.'
+display:
+  html: true
+  primary_key: hostname
+  group_by: system_type
+  group_order:
+    - Physical
+    - Virtual
+  columns:
+    - hostname
+    - system_type
+    - manufacturer
+    - product_name
+    - rhel_version
+    - certification_scope
+    - reference
+    - status
+  reference:
+    label_field: reference_name
+    url_field: reference_url
+    render_as_link_when_url_present: true
+    open_in_new_tab: true
+notes:
+  - 'When both Physical and Virtual hosts are present, render them as separate tables rather than mixing rows.'
+  - 'Reference must be rendered as a clickable hyperlink when an authoritative URL is available.'
