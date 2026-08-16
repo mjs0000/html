@@ -4,28 +4,40 @@ section: "3.6"
 title: SELINUX
 parser: selinux
 recommended_state: disabled
+version_policy:
+  rhel_8_and_earlier:
+    primary_checks:
+      - runtime_mode
+      - configured_mode
+    pass_when: effective detected state is Disabled
+  rhel_9_and_later:
+    required_checks:
+      - kernel_cmdline
+    kernel_parameter: selinux=0
+    pass_when: /proc/cmdline contains the exact token selinux=0
+    notes:
+      - Runtime and /etc/selinux/config remain visible as supporting evidence.
+      - If /proc/cmdline is unavailable, mark the item SKIPPED rather than inferring PASS from configuration alone.
 display:
   always_show:
+    - rhel_major
     - runtime_mode
     - configured_mode
     - runtime_config_mismatch
+    - kernel_selinux_disabled
+    - kernel_cmdline
 assessment:
   disabled:
     internal_status: PASS
-    grade: A
-    summary: SELinux is disabled as recommended by the current RockPLACE policy.
-  permissive:
+    summary: SELinux matches the current RockPLACE disabled policy.
+  enabled_or_not_kernel_disabled:
     internal_status: WARN
-    grade: B
-    summary: SELinux is Permissive; the current RockPLACE recommendation is disabled.
-  enforcing:
-    internal_status: WARN
-    grade: B
-    summary: SELinux is Enforcing; the current RockPLACE recommendation is disabled.
+    summary: SELinux does not match the current RockPLACE disabled policy.
 missing_data:
   status: SKIPPED
   include_in_report: false
-  reason: SELinux runtime/configured state could not be determined from usable evidence.
+  reason: Required version-specific SELinux evidence could not be determined reliably.
 recommendation:
-  - Keep the detected runtime and persistent configuration visible in the report even when it differs from the recommendation.
-  - Recommended state for this diagnostic policy is disabled.
+  - Keep detected runtime and persistent configuration visible in the report.
+  - For RHEL 9 and later, verify the exact selinux=0 token in /proc/cmdline.
+  - Do not use A/B/C grades; report PASS, WARN, FAIL, or SKIPPED only.
