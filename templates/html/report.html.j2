@@ -11,6 +11,8 @@
     code { white-space: pre-wrap; word-break: break-all; }
     .status { font-weight: 700; }
     .host-detail { margin: 18px 0 28px; padding-top: 10px; border-top: 1px solid #ddd; }
+    .type-group { margin-top: 20px; }
+    .reference-link { word-break: break-all; }
   </style>
 </head>
 <body>
@@ -52,9 +54,78 @@
     </table>
   </section>
 
+  <section id="hardware-certification-summary">
+    <h2>2. 3.1 하드웨어 인증 호스트별 진단 요약</h2>
+    <p>Hostname 중심으로 표시하며 Physical과 Virtual 시스템은 서로 섞지 않고 Type별 별도 표로 제공합니다.</p>
+
+    {% set ns = namespace(has_physical=false, has_virtual=false) %}
+    {% for host in hosts %}
+      {% if host.system_type and host.system_type|lower == 'physical' %}{% set ns.has_physical = true %}{% endif %}
+      {% if host.system_type and host.system_type|lower == 'virtual' %}{% set ns.has_virtual = true %}{% endif %}
+    {% endfor %}
+
+    {% if ns.has_physical %}
+    <div class="type-group">
+      <h3>Physical</h3>
+      <table>
+        <tr><th>Hostname</th><th>Type</th><th>Manufacturer</th><th>Model</th><th>RHEL Version</th><th>Certification</th><th>Reference</th><th>Status</th></tr>
+        {% for host in hosts if host.system_type and host.system_type|lower == 'physical' %}
+          {% for item in host.diagnostics if item.id == 'SYS_HW_CERT' %}
+          <tr>
+            <td><strong>{{ host.hostname }}</strong></td>
+            <td>Physical</td>
+            <td>{{ item.current_values.get('manufacturer') or '-' }}</td>
+            <td>{{ item.current_values.get('product_name') or host.hardware_model or '-' }}</td>
+            <td>{{ item.current_values.get('rhel_version') or host.os_version or '-' }}</td>
+            <td>{{ item.current_values.get('certification_scope') or '-' }}</td>
+            <td>
+              {% if item.current_values.get('reference_url') %}
+                <a class="reference-link" href="{{ item.current_values.get('reference_url') }}" target="_blank" rel="noopener noreferrer">{{ item.current_values.get('reference_name') or 'Reference' }}</a>
+              {% else %}
+                {{ item.current_values.get('reference_name') or '-' }}
+              {% endif %}
+            </td>
+            <td class="status">{{ item.status }}</td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if ns.has_virtual %}
+    <div class="type-group">
+      <h3>Virtual</h3>
+      <table>
+        <tr><th>Hostname</th><th>Type</th><th>Manufacturer</th><th>Model</th><th>RHEL Version</th><th>Certification</th><th>Reference</th><th>Status</th></tr>
+        {% for host in hosts if host.system_type and host.system_type|lower == 'virtual' %}
+          {% for item in host.diagnostics if item.id == 'SYS_HW_CERT' %}
+          <tr>
+            <td><strong>{{ host.hostname }}</strong></td>
+            <td>Virtual</td>
+            <td>{{ item.current_values.get('manufacturer') or '-' }}</td>
+            <td>{{ item.current_values.get('product_name') or host.hardware_model or '-' }}</td>
+            <td>{{ item.current_values.get('rhel_version') or host.os_version or '-' }}</td>
+            <td>{{ item.current_values.get('certification_scope') or '-' }}</td>
+            <td>
+              {% if item.current_values.get('reference_url') %}
+                <a class="reference-link" href="{{ item.current_values.get('reference_url') }}" target="_blank" rel="noopener noreferrer">{{ item.current_values.get('reference_name') or 'Reference' }}</a>
+              {% else %}
+                {{ item.current_values.get('reference_name') or '-' }}
+              {% endif %}
+            </td>
+            <td class="status">{{ item.status }}</td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+  </section>
+
   <section id="selinux-summary">
-    <h2>2. SELinux 호스트별 진단 요약</h2>
-    <p>Hostname을 기준으로 여러 RHEL 시스템의 SELinux 상태를 비교합니다. RHEL 9 이상은 /proc/cmdline의 selinux=0 여부를 필수 확인합니다.</p>
+    <h2>3. SELinux 호스트별 진단 요약</h2>
+    <p>Hostname을 기준으로 여러 RHEL 시스템의 SELinux 상태를 비교합니다. 모든 RHEL 버전에서 getenforce와 /etc/selinux/config를 주요 판정 Evidence로 사용하며, /proc/cmdline의 selinux=0은 추가 Evidence로 표시합니다.</p>
     <table>
       <tr>
         <th>Hostname</th>
@@ -73,13 +144,7 @@
             <td>{{ item.current_values.get('rhel_major', host.os_version or '-') }}</td>
             <td>{{ item.current_values.get('runtime_mode') or '-' }}</td>
             <td>{{ item.current_values.get('configured_mode') or '-' }}</td>
-            <td>
-              {% if item.current_values.get('rhel_major', 0) >= 9 %}
-                {% if item.current_values.get('kernel_selinux_disabled') is sameas true %}있음{% elif item.current_values.get('kernel_selinux_disabled') is sameas false %}없음{% else %}확인 불가{% endif %}
-              {% else %}
-                N/A
-              {% endif %}
-            </td>
+            <td>{% if item.current_values.get('kernel_selinux_disabled') is sameas true %}있음{% elif item.current_values.get('kernel_selinux_disabled') is sameas false %}없음{% else %}확인 불가{% endif %}</td>
             <td class="status">{{ item.status }}</td>
             <td>{{ item.summary or '-' }}</td>
           </tr>
@@ -90,7 +155,7 @@
   </section>
 
   <section id="details">
-    <h2>3. Hostname별 상세 Report</h2>
+    <h2>4. Hostname별 상세 Report</h2>
     {% for host in hosts %}
       <section class="host-detail">
         <h3>{{ host.hostname }}{% if host.os_version %} — {{ host.os_version }}{% endif %}</h3>
@@ -106,7 +171,7 @@
               <tr><th>Runtime</th><td>{{ item.current_values.get('runtime_mode') or '-' }}</td></tr>
               <tr><th>Configuration</th><td>{{ item.current_values.get('configured_mode') or '-' }}</td></tr>
               <tr><th>Runtime/Config 불일치</th><td>{{ item.current_values.get('runtime_config_mismatch') if item.current_values.get('runtime_config_mismatch') is not none else '-' }}</td></tr>
-              <tr><th>selinux=0</th><td>{{ item.current_values.get('kernel_selinux_disabled') if item.current_values.get('kernel_selinux_disabled') is not none else '-' }}</td></tr>
+              <tr><th>selinux=0 (추가 Evidence)</th><td>{{ item.current_values.get('kernel_selinux_disabled') if item.current_values.get('kernel_selinux_disabled') is not none else '-' }}</td></tr>
               <tr><th>/proc/cmdline</th><td><code>{{ item.current_values.get('kernel_cmdline') or '-' }}</code></td></tr>
             </table>
 
