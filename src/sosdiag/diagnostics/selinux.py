@@ -11,17 +11,23 @@ def evaluate_selinux(facts: SelinuxFacts) -> DiagnosticResult:
     if facts.runtime_mode is not None:
         evidence.append(
             Evidence(
-                source=facts.runtime_source or "runtime",
+                source=facts.runtime_source or "getenforce",
                 detail=f"runtime_mode={facts.runtime_mode}",
             )
         )
+    else:
+        findings.append("getenforce Runtime 상태 Evidence가 없습니다.")
+
     if facts.configured_mode is not None:
         evidence.append(
             Evidence(
-                source=facts.configured_source or "config",
+                source=facts.configured_source or "/etc/selinux/config",
                 detail=f"configured_mode={facts.configured_mode}",
             )
         )
+    else:
+        findings.append("/etc/selinux/config 설정 상태 Evidence가 없습니다.")
+
     if facts.kernel_cmdline is not None:
         evidence.append(
             Evidence(
@@ -30,74 +36,40 @@ def evaluate_selinux(facts: SelinuxFacts) -> DiagnosticResult:
             )
         )
 
-    if facts.rhel_major is None:
+    if not facts.has_usable_state:
         return DiagnosticResult(
             id="SYS_SELINUX",
             category="System",
             section="3.6",
             title="SELINUX",
             status="SKIPPED",
-            summary="RHEL major version을 확인할 수 없어 SELinux 버전별 정책을 적용할 수 없습니다.",
-            findings=["OS version evidence가 필요합니다."],
+            summary="getenforce와 /etc/selinux/config에서 SELinux 상태를 확인할 수 없습니다.",
+            findings=findings,
             include_in_report=False,
             evidence=evidence,
         )
 
-    if facts.rhel_major >= 9:
-        if facts.kernel_selinux_disabled is None:
-            return DiagnosticResult(
-                id="SYS_SELINUX",
-                category="System",
-                section="3.6",
-                title="SELINUX",
-                status="SKIPPED",
-                summary="RHEL 9 이상에서는 /proc/cmdline 확인이 필요하지만 해당 Evidence가 없습니다.",
-                findings=["/proc/cmdline에서 selinux=0 존재 여부를 확인할 수 없습니다."],
-                include_in_report=False,
-                current_values={
-                    "rhel_major": facts.rhel_major,
-                    "runtime_mode": facts.runtime_mode,
-                    "configured_mode": facts.configured_mode,
-                    "kernel_selinux_disabled": facts.kernel_selinux_disabled,
-                },
-                recommended_values={"kernel_parameter": "selinux=0"},
-                evidence=evidence,
-            )
-
-        if facts.kernel_selinux_disabled:
-            status = "PASS"
-            summary = "RHEL 9 이상이며 /proc/cmdline에서 selinux=0이 확인되었습니다."
-            if facts.runtime_mode not in {None, "Disabled"}:
-                status = "WARN"
-                findings.append(
-                    "커널 명령행에는 selinux=0이 있으나 수집된 Runtime 상태와 일치하지 않습니다. Evidence 확인이 필요합니다."
-                )
-        else:
-            status = "WARN"
-            summary = "RHEL 9 이상이지만 /proc/cmdline에서 selinux=0이 확인되지 않았습니다."
-            findings.append("RHEL 9 SELinux 비활성화 정책 기준인 selinux=0이 커널 명령행에 없습니다.")
+    primary_modes = [mode for mode in (facts.runtime_mode, facts.configured_mode) if mode is not None]
+    if all(mode == "Disabled" for mode in primary_modes):
+        status = "PASS"
+        summary = "SELinux Runtime/Configuration의 주요 Evidence가 disabled 권고 상태와 일치합니다."
     else:
-        effective_mode = facts.runtime_mode or facts.configured_mode
-        if effective_mode is None:
-            return DiagnosticResult(
-                id="SYS_SELINUX",
-                category="System",
-                section="3.6",
-                title="SELINUX",
-                status="SKIPPED",
-                summary="SELinux 상태를 판정할 수 있는 유효한 Evidence가 없습니다.",
-                include_in_report=False,
-                evidence=evidence,
-            )
-        if effective_mode == "Disabled":
-            status = "PASS"
-            summary = "SELinux가 권고 상태인 disabled로 확인되었습니다."
-        else:
-            status = "WARN"
-            summary = f"SELinux 현재 상태는 {effective_mode}이며, 권고 상태는 disabled입니다."
+        status = "WARN"
+        summary = "SELinux Runtime 또는 Configuration이 disabled 권고 상태와 일치하지 않습니다."
 
     if facts.runtime_config_mismatch:
         findings.append("Runtime 상태와 /etc/selinux/config 설정이 일치하지 않습니다.")
+
+    # /proc/cmdline is additional evidence only. It never independently overrides
+    # the primary decision made from getenforce + /etc/selinux/config.
+    if facts.rhel_major is not None and facts.rhel_major >= 9 and facts.kernel_selinux_disabled is False:
+        findings.append(
+            "RHEL 9 이상이며 /proc/cmdline에 selinux=0이 없습니다. 주요 판정은 getenforce와 /etc/selinux/config를 따르되 추가 검토가 필요합니다."
+        )
+    if facts.kernel_selinux_disabled is True and facts.runtime_mode not in {None, "Disabled"}:
+        findings.append(
+            "/proc/cmdline에는 selinux=0이 있으나 Runtime 상태와 일치하지 않습니다. Evidence 충돌을 확인해야 합니다."
+        )
 
     return DiagnosticResult(
         id="SYS_SELINUX",
@@ -116,13 +88,11 @@ def evaluate_selinux(facts: SelinuxFacts) -> DiagnosticResult:
             "kernel_selinux_disabled": facts.kernel_selinux_disabled,
             "kernel_cmdline": facts.kernel_cmdline,
         },
-        recommended_values={
-            "state": "disabled",
-            "rhel_9_plus_kernel_parameter": "selinux=0",
-        },
+        recommended_values={"state": "disabled"},
         recommendations=[
             "SELinux 권고 상태는 disabled입니다.",
-            "RHEL 9 이상에서는 /proc/cmdline에 selinux=0이 적용되어 있는지 확인합니다.",
+            "주요 판정은 getenforce와 /etc/selinux/config를 기준으로 수행합니다.",
+            "/proc/cmdline은 추가 Evidence로 표시하며 RHEL 9 이상에서는 selinux=0 여부를 함께 검토합니다.",
         ],
         evidence=evidence,
     )
