@@ -18,11 +18,18 @@ system:
 
   boot_mode:
     candidates:
+      - sys/firmware/efi
       - sos_commands/boot/efibootmgr_-v
       - sos_commands/boot/ls_-lanR_.sys.firmware
       - sos_commands/boot/ls_-alZR_.sys.firmware
+    primary_detection:
+      uefi_when_directory_exists: sys/firmware/efi
+      bios_when_directory_absent: sys/firmware/efi
     secure_boot_candidates:
       - sos_commands/boot/mokutil_--sb-state
+    notes:
+      - 'Primary boot-mode check: if /sys/firmware/efi exists, classify as UEFI; if absent, classify as legacy BIOS.'
+      - 'efibootmgr and firmware listings are supporting evidence and help validate the primary result.'
 
   filesystem:
     candidates:
@@ -48,6 +55,11 @@ system:
     updateinfo_optional:
       - sos_commands/dnf/dnf_updateinfo*
       - sos_commands/yum/yum_updateinfo*
+    external_reference_required: true
+    external_reference_purpose:
+      - latest_supported_version
+      - security_advisory_status
+      - lifecycle_or_errata_context
     package_allowlist:
       - kernel
       - openssl
@@ -66,9 +78,13 @@ system:
       - installed_nevra
       - running_kernel
       - update_reference_status
+      - external_reference_source
+      - external_reference_version
+      - external_reference_checked_at
     notes:
       - 'Only kernel, openssl and openssh are in scope for SYS_PACKAGE_UPDATE.'
       - 'Do not render unrelated installed packages as package-update findings.'
+      - 'The installed version alone is not sufficient for a final decision; compare it with an external authoritative reference before evaluating status.'
 
   selinux:
     version_candidates:
@@ -203,6 +219,82 @@ system:
       - sos_commands/systemd/systemctl_list-unit-files
       - sos_commands/systemd/systemctl_list-units
       - etc/systemd/system/*.wants/*
+    default_target_candidates:
+      - etc/systemd/system/default.target
+    default_target_check:
+      type: symlink_target
+      expected_output_field: default_target_link
+    service_policy:
+      - name: iscsi.service
+        description: iscsi 장치를 검색하거나 로그인하는 서비스
+        recommendation: iscsi 미 사용시 Disable
+      - name: iscsi-onboot.service
+        description: iscsi 장치를 검색하거나 로그인하는 서비스
+        recommendation: iscsi 미 사용시 Disable
+      - name: libstoragemgmt.service
+        description: 다양한 스토리지 관리를 위한 개발 API 응용프로그램
+        recommendation: 개발 API를 사용하여 스토리지 어레이 미 관리시 Disable
+      - name: nis-domainname.service
+        description: /etc/sysconfig/network에서 NIS DomainName을 읽거나 설정하는 서비스
+        recommendation: Disable
+      - name: nvmefc-boot-connections.service
+        description: SAN용 NVMe 장치를 검색 및 마운트 시도
+        recommendation: SAN용 NVMe 미 사용시 Disable
+      - name: ostree-remount.service
+        description: OSTree Remount OS / Bind Mounts
+        recommendation: 재부팅 시 간혹 emergency mode로 빠지는 문제로 Disable
+      - name: qemu-guest-agent.service
+        description: guest operating system using libvirt
+        recommendation: KVM 기반 VM이 아닐 시 Disable
+      - name: libvirtd.service
+        description: KVM 및 가상화 환경을 사용하는 서비스
+        recommendation: KVM, 가상화 환경 미사용시 Disable
+      - name: ksm.service
+        description: 가상화 환경에서 메모리 밀도를 향상하기 위한 서비스
+        recommendation: KVM, 가상화 환경 미사용시 Disable
+      - name: ksmtuned.service
+        description: 가상화 환경에서 메모리 밀도를 향상하기 위한 서비스
+        recommendation: KVM, 가상화 환경 미사용시 Disable
+      - name: spice-vdagentd.service
+        description: KVM 및 가상화에서 spice 원격을 제공하는 서비스
+        recommendation: KVM, 가상화 환경에서 spice client 미사용시 Disable
+      - name: bluetooth.service
+        description: Bluetooth 기능을 제공하는 서비스
+        recommendation: Disable
+      - name: cups.service
+        description: 프린트 기능을 제공하는 서비스
+        recommendation: Disable
+      - name: atd.service
+        description: crond과 같이 스케줄링을 제공하는 서비스
+        recommendation: Disable
+      - name: wpa_supplicant.service
+        description: WPA, WPA2, WPA3 등 무선 인증방식을 지원하는 서비스
+        recommendation: Disable
+      - name: avahi-daemon.service
+        description: 로컬 네트워크에 연결된 장치가 기능과 함께 IP 주소를 브로드캐스트하는 서비스
+        recommendation: Disable
+      - name: mdmonitor.service
+        description: software RAID 모니터링 및 매니지먼트 서비스
+        recommendation: Disable
+      - name: ModemManager.service
+        description: modem을 관리하는 서비스
+        recommendation: Disable
+      - name: rhsmcertd.service
+        description: Red Hat 제품에 대한 Subscription을 발행하여 컨텐츠 업데이트 및 지원을 제공하는 서비스
+        recommendation: Disable
+      - name: rtkit-daemon.service
+        description: 요청 시 사용자 프로세스/스레드의 스케줄링 정책을 SCHED_RR로 변경하는 D-Bus 시스템 서비스
+        recommendation: Disable
+      - name: selinux-autorelabel-mark.service
+        description: SELinux의 Re-Label 확인 서비스
+        recommendation: Disable
+      - name: vdo.service
+        description: VDO 볼륨에서 압축 및 중복 제거를 제공하는 서비스
+        recommendation: VDO 미 사용시 Disable
+    notes:
+      - 'Inspect both enablement and runtime state for each listed service.'
+      - 'Conditional recommendations require workload/context checks before WARN/FAIL; service presence alone is not a finding.'
+      - 'Also record the symbolic-link target of /etc/systemd/system/default.target to identify the configured default boot target.'
 
   app_coredump:
     candidates:
@@ -278,6 +370,12 @@ system:
       - sos_commands/systemd/systemctl_list-timers_--all
       - usr/lib/systemd/system/*.timer
       - etc/systemd/system/timers.target.wants/*
+      - usr/lib/systemd/system/sysstat-collect.timer
+    specific_timer_candidates:
+      sysstat_collect:
+        - usr/lib/systemd/system/sysstat-collect.timer
+        - etc/systemd/system/sysstat.service.wants/sysstat-collect.timer
+        - etc/systemd/system/sysstat-collect.timer.d/*
     applicability:
       source: sos_commands/systemd/systemctl_list-timers_--all
       conditional_after_inventory: true
@@ -288,9 +386,11 @@ system:
       - active
       - enabled
       - conditionally_relevant
+      - on_calendar
     notes:
       - 'First inventory list-timers, then evaluate only timer units that have an explicit diagnostic rule.'
       - 'dnf-makecache.timer is a known scope rule candidate; other timers are not automatically findings.'
+      - '/usr/lib/systemd/system/sysstat-collect.timer is an explicit supporting source and its OnCalendar value should be retained when present.'
 
   other_settings:
     rsyslog:
