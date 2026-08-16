@@ -1,7 +1,7 @@
 version: '0.5'
 active_diagnostics: 22
 policy:
-  customer_grades: [A, B, C]
+  statuses: [PASS, WARN, FAIL, SKIPPED]
   missing_evidence_status: SKIPPED
   render_skipped: false
   render_defaults:
@@ -18,7 +18,7 @@ diagnostics:
   parser: hardware
   automation: conditional
   render:
-    html: false
+    html: true
     docx: true
     json: true
   legacy_xlsx: true
