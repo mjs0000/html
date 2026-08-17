@@ -5,6 +5,8 @@ import tarfile
 from pathlib import Path
 
 from sosdiag.archive import SosArchive
+from sosdiag.diagnostics.network_storage import evaluate_netstate
+from sosdiag.model.network_storage import NetstateFacts, NetworkInterfaceFacts
 from sosdiag.parser.network_storage import parse_network_kernel_facts
 
 
@@ -59,3 +61,30 @@ def test_disconnected_physical_ethernet_does_not_trigger_10g(tmp_path: Path) -> 
 
     facts = parse_network_kernel_facts(archive)
     assert facts.qualifying_interface is None
+
+
+def test_unused_disconnected_port_does_not_warn_netstate() -> None:
+    facts = NetstateFacts(
+        networkmanager_in_use=True,
+        networkmanager_active=True,
+        interfaces=[
+            NetworkInterfaceFacts(
+                interface_name="ens1",
+                configured=True,
+                active_connection=True,
+                carrier=True,
+                operational_state="connected",
+            ),
+            NetworkInterfaceFacts(
+                interface_name="ens2",
+                configured=False,
+                active_connection=False,
+                carrier=False,
+                operational_state="disconnected",
+            ),
+        ],
+    )
+
+    result = evaluate_netstate(facts)
+    assert result.status == "PASS"
+    assert result.current_values["link_status"] == "PASS"
