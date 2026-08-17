@@ -1,7 +1,75 @@
 from __future__ import annotations
 
 from sosdiag.model.diagnostic import DiagnosticResult, Evidence, ReportTable
-from sosdiag.model.system_basics import BootModeFacts, FilesystemFacts, LifecycleFacts
+from sosdiag.model.system_basics import BootModeFacts, FilesystemFacts, HardwareCertificationFacts, LifecycleFacts
+
+
+def evaluate_hardware_certification(facts: HardwareCertificationFacts) -> DiagnosticResult:
+    evidence = [Evidence(source=path, detail="hardware identification evidence") for path in facts.evidence_paths]
+    current_values = {
+        "host_type": facts.host_type,
+        "manufacturer": facts.manufacturer,
+        "product_name": facts.product_name,
+        "rhel_version": facts.rhel_version,
+        "virtualization": facts.virtualization,
+        "reference_name": facts.reference_name,
+        "reference_url": facts.reference_url,
+        "certification_scope": facts.certification_scope,
+        "certification_confirmed": facts.certification_confirmed,
+    }
+
+    if not facts.manufacturer and not facts.product_name:
+        return DiagnosticResult(
+            id="SYS_HW_CERT",
+            category="System",
+            section="3.1",
+            title="Hardware Certification",
+            status="SKIPPED",
+            summary="H/W 제조사/모델을 식별할 충분한 Evidence가 없어 Red Hat Hardware Certification을 판정할 수 없습니다.",
+            current_values=current_values,
+            evidence=evidence,
+            include_in_report=True,
+        )
+
+    if facts.certification_confirmed is True:
+        return DiagnosticResult(
+            id="SYS_HW_CERT",
+            category="System",
+            section="3.1",
+            title="Hardware Certification",
+            status="PASS",
+            summary="구성된 외부 Red Hat Hardware Certification reference에서 해당 H/W/RHEL 조합을 확인했습니다.",
+            current_values=current_values,
+            evidence=evidence,
+        )
+
+    if facts.certification_confirmed is False:
+        return DiagnosticResult(
+            id="SYS_HW_CERT",
+            category="System",
+            section="3.1",
+            title="Hardware Certification",
+            status="WARN",
+            summary="구성된 외부 Red Hat Hardware Certification reference에서 해당 H/W/RHEL 조합을 확인하지 못했습니다. 미조회 상태만으로 FAIL 처리하지 않습니다.",
+            current_values=current_values,
+            evidence=evidence,
+        )
+
+    platform = "VM" if (facts.host_type or "").lower() == "virtual" else "Physical"
+    return DiagnosticResult(
+        id="SYS_HW_CERT",
+        category="System",
+        section="3.1",
+        title="Hardware Certification",
+        status="SKIPPED",
+        summary=(
+            f"{platform} H/W 식별 정보는 수집했으나 Red Hat Hardware Certification reference provider가 구성되지 않아 인증 여부를 판정하지 않았습니다."
+        ),
+        current_values=current_values,
+        recommendations=["Red Hat Hardware Certification 공식 reference와 H/W Model/RHEL major 조합을 대조하십시오."],
+        evidence=evidence,
+        include_in_report=True,
+    )
 
 
 def evaluate_lifecycle(facts: LifecycleFacts) -> DiagnosticResult:
