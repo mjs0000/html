@@ -1,0 +1,87 @@
+id: SYS_LOGROTATE_SYSSTAT
+category: System
+section: "3.14"
+title: Logrotate / sysstat(SAR)
+parser: logrotate_sysstat
+policy_note: >-
+  Logrotate의 회전 주기와 보존 개수, sysstat(SAR)의 수집 주기를 각각 별도 sub-check로 평가한다.
+evidence:
+  primary:
+    - etc/logrotate.conf
+    - etc/logrotate.d/*
+    - sos_commands/logrotate/logrotate_-d_*
+    - usr/lib/systemd/system/sysstat-collect.timer
+    - etc/systemd/system/sysstat-collect.timer.d/*
+    - etc/systemd/system/sysstat.service.wants/sysstat-collect.timer
+    - sos_commands/systemd/systemctl_list-timers_--all
+  supporting:
+    - etc/cron.d/sysstat
+    - installed-rpms
+normalized_fields:
+  - logrotate_frequency
+  - logrotate_rotate_count
+  - sysstat_installed
+  - sysstat_enabled
+  - sar_interval_minutes
+sub_checks:
+  - id: logrotate_frequency
+    title: Logrotate Frequency
+    recommended:
+      accepted_values:
+        - daily
+        - weekly
+    assessment:
+      pass_when:
+        - effective logrotate frequency is daily or weekly
+      warn_when:
+        - effective logrotate frequency is monthly or another less frequent schedule
+      skipped_when:
+        - effective logrotate frequency cannot be determined
+
+  - id: logrotate_retention
+    title: Logrotate Retention Count
+    recommended:
+      operator: ge
+      value: 12
+    assessment:
+      pass_when:
+        - effective rotate count is 12 or greater
+      warn_when:
+        - effective rotate count is less than 12
+      skipped_when:
+        - effective rotate count cannot be determined
+
+  - id: sysstat_interval
+    title: sysstat(SAR) Collection Interval
+    recommended:
+      interval_minutes: 1
+    assessment:
+      pass_when:
+        - sysstat collection is enabled and configured for a 1-minute interval
+      warn_when:
+        - sysstat is not installed
+        - sysstat collection is disabled
+        - configured SAR collection interval is greater than 1 minute
+      skipped_when:
+        - sysstat collection configuration cannot be determined
+    notes:
+      - "For RHEL 8 and later, prefer sysstat-collect.timer evidence over cron when both are present."
+      - "Do not use last-run or next-run timestamps as the assessment criterion; evaluate the configured interval."
+html:
+  summary_columns:
+    - hostname
+    - logrotate_frequency
+    - rotate_count
+    - sar_interval
+    - frequency_status
+    - retention_status
+    - sar_status
+  notes:
+    - "Keep the three sub-check statuses visible separately."
+overall_status:
+  mode: derived_from_sub_checks
+  rule: >-
+    If an overall 3.14 status is required, use the worse visible sub-check status while preserving each sub-check result.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
