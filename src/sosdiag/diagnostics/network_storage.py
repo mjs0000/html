@@ -59,7 +59,7 @@ def evaluate_network_kernel(facts: NetworkKernelFacts) -> DiagnosticResult:
     if not (facts.qualifying_interface and facts.link_up is True and facts.configured is True):
         return DiagnosticResult(
             id="NET_KERNEL_PARAM", category="Network", section="4.2", title="네트워크 커널 파라미터",
-            status="SKIPPED", summary="설정되어 있고 Link Up인 10G 이상 NIC가 없어 평가 대상이 아닙니다.", include_in_report=False,
+            status="SKIPPED", summary="설정되어 있고 Link Up인 10G 이상 Physical Ethernet NIC가 없어 평가 대상이 아닙니다.", include_in_report=False,
             current_values=facts.model_dump(),
         )
     expected = {
@@ -85,7 +85,7 @@ def evaluate_network_kernel(facts: NetworkKernelFacts) -> DiagnosticResult:
     status = "WARN" if "WARN" in statuses.values() else ("PASS" if statuses and all(v == "PASS" for v in statuses.values()) else "SKIPPED")
     return DiagnosticResult(
         id="NET_KERNEL_PARAM", category="Network", section="4.2", title="네트워크 커널 파라미터", status=status,
-        summary=f"{facts.qualifying_interface} ({facts.speed_mbps} Mb/s) 기준으로 10G 네트워크 파라미터를 평가합니다.",
+        summary=f"{facts.qualifying_interface} ({facts.speed_mbps} Mb/s) Physical Ethernet NIC 기준으로 10G 네트워크 파라미터를 평가합니다.",
         findings=findings, current_values={**facts.model_dump(), "parameter_status": statuses}, recommended_values=expected,
         evidence=[Evidence(source=p, detail="network kernel evidence") for p in facts.evidence_paths], include_in_report=status != "SKIPPED",
     )
@@ -98,6 +98,8 @@ def evaluate_netstate(facts: NetstateFacts) -> DiagnosticResult:
             nm_status = "PASS"
         elif facts.networkmanager_active is False:
             nm_status = "WARN"
+
+    # Only configured/in-use links are assessed. Unused disconnected ports must not create WARN.
     interfaces = [i for i in facts.interfaces if i.active_connection is True or i.configured is True]
     if interfaces:
         if any(i.carrier is False for i in interfaces):
@@ -107,14 +109,14 @@ def evaluate_netstate(facts: NetstateFacts) -> DiagnosticResult:
         else:
             link_status = "SKIPPED"
     else:
-        fallback = [i for i in facts.interfaces if i.carrier is not None]
-        link_status = "PASS" if fallback and all(i.carrier for i in fallback) else ("WARN" if any(i.carrier is False for i in fallback) else "SKIPPED")
+        link_status = "SKIPPED"
+
     visible = [s for s in (nm_status, link_status) if s != "SKIPPED"]
     status = "WARN" if "WARN" in visible else ("PASS" if visible else "SKIPPED")
     rows = [i.model_dump() for i in facts.interfaces]
     return DiagnosticResult(
         id="NET_NETSTATE", category="Network", section="4.3", title="Netstate", status=status,
-        summary="NetworkManager 사용 여부와 실제 활성/구성 Interface의 Link 상태를 분리 평가합니다.",
+        summary="NetworkManager 사용 여부와 실제 활성/구성 Interface의 Link 상태만 평가합니다. 미사용 disconnected 포트는 판정에서 제외합니다.",
         current_values={"networkmanager_status": nm_status, "link_status": link_status, **facts.model_dump(exclude={"interfaces"})},
         evidence=[Evidence(source=p, detail="netstate evidence") for p in facts.evidence_paths],
         tables=[ReportTable(columns=list(rows[0].keys()), rows=rows)] if rows else [], include_in_report=status != "SKIPPED",
