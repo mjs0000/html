@@ -64,9 +64,9 @@ The repository contains a runnable FastAPI/Podman web skeleton with:
 - persistent upload/output directories
 - health endpoint at `/health`
 - actual downloadable HTML and DOCX files for validating the full browser/container/output workflow
-- SELinux parser/diagnostic proof of concept with version-specific RHEL handling
+- SELinux parser/diagnostic proof of concept
 
-SELinux currently uses runtime state, `/etc/selinux/config`, RHEL major-version evidence, and `/proc/cmdline`. For RHEL 9 and later, `/proc/cmdline` is required and the exact `selinux=0` token is checked before the disabled policy can be considered satisfied.
+SELinux uses runtime state from `getenforce`/`sestatus` and persistent state from `/etc/selinux/config` as the primary evidence. `/proc/cmdline` and the exact `selinux=0` token are supporting evidence only. Runtime `Disabled` plus configured `disabled` is PASS even when `selinux=0` is not present on the kernel command line. If either primary source is available, the diagnostic can still be evaluated; if neither is available, the item is `SKIPPED`.
 
 The current generated HTML/DOCX content is still a **workflow-validation report**, not the final diagnostic report. The production archive reader, full diagnostic rule set, multi-host aggregation, and final RockPLACE report rendering are the next implementation phase.
 
