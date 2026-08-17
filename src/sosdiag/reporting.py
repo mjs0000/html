@@ -45,5 +45,6 @@ def corpus_run_summary(payload: dict) -> dict:
         "analyzed_count": payload.get("analyzed_count", 0),
         "error_count": payload.get("error_count", 0),
         "status_distribution": payload.get("status_distribution", {}),
+        "issue_distribution": payload.get("issue_distribution", {}),
         "errors": payload.get("errors", []),
     }
