@@ -28,8 +28,13 @@ _NET_SYSCTLS = {
 
 def parse_bonding_facts(archive: SosArchive) -> BondingFacts:
     facts = BondingFacts()
-    for path, text in archive.glob_text("proc/net/bonding/*"):
+    candidates = archive.glob_text("proc/net/bonding/*") + archive.glob_text("proc/*/net/bonding/*")
+    seen_bonds: set[str] = set()
+    for path, text in candidates:
         bond_name = path.rsplit("/", 1)[-1]
+        if bond_name in seen_bonds:
+            continue
+        seen_bonds.add(bond_name)
         bond = BondFacts(bond_name=bond_name, evidence_path=path)
         m = re.search(r"^Bonding Mode:\s*(.+)$", text, re.M)
         if m:
@@ -69,12 +74,11 @@ def parse_network_kernel_facts(archive: SosArchive) -> NetworkKernelFacts:
     if active:
         facts.evidence_paths.append(active[0])
 
-    for path, text in archive.glob_text("sos_commands/networking/ethtool_*"):
+    for path, iface, text in _direct_ethtool_entries(archive):
         speed = _parse_speed(text)
         link_up = _parse_link(text)
         if speed is None or speed < 10000 or link_up is not True:
             continue
-        iface = path.split("ethtool_", 1)[-1]
         configured = bool(re.search(rf"\b{re.escape(iface)}\b", active_text)) if active_text else None
         if configured is True:
             facts.qualifying_interface = iface
@@ -150,8 +154,7 @@ def parse_netstate_facts(archive: SosArchive) -> NetstateFacts:
             ))
 
     known = {i.interface_name for i in facts.interfaces}
-    for path, text in archive.glob_text("sos_commands/networking/ethtool_*"):
-        iface = path.split("ethtool_", 1)[-1]
+    for path, iface, text in _direct_ethtool_entries(archive):
         if iface == "lo":
             continue
         speed = _parse_speed(text)
@@ -209,6 +212,16 @@ def parse_multipath_facts(archive: SosArchive) -> MultipathFacts:
         facts.effective_config_available = True
         facts.evidence_paths.append("etc/multipath.conf")
     return facts
+
+
+def _direct_ethtool_entries(archive: SosArchive) -> list[tuple[str, str, str]]:
+    entries: list[tuple[str, str, str]] = []
+    for path, text in archive.glob_text("sos_commands/networking/ethtool_*"):
+        suffix = path.split("ethtool_", 1)[-1]
+        if not suffix or suffix.startswith("-"):
+            continue
+        entries.append((path, suffix, text))
+    return entries
 
 
 def _parse_speed(text: str) -> int | None:
