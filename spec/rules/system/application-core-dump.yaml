@@ -1,0 +1,99 @@
+id: SYS_APP_COREDUMP
+category: System
+section: "3.13"
+title: Application Core Dump
+parser: coredump
+policy_note: >-
+  Application Segmentation Fault 등 비정상 종료 시 Core Dump를 수집할 수 있도록 설정 여부를 확인한다.
+  RHEL 8 이상에서는 systemd-coredump 사용을 권장하며, core size limit과 systemd 설정, 저장/보존 정책을 sub-check로 평가한다.
+evidence:
+  primary:
+    - etc/security/limits.conf
+    - etc/security/limits.d/*
+    - etc/systemd/coredump.conf
+    - usr/lib/systemd/coredump.conf.d/*
+    - usr/lib/sysctl.d/50-coredump.conf
+    - proc/sys/kernel/core_pattern
+  supporting:
+    - etc/systemd/system.conf
+    - etc/systemd/system.conf.d/*
+    - usr/lib/systemd/system.conf.d/*
+    - usr/lib/tmpfiles.d/systemd.conf
+    - etc/tmpfiles.d/*
+    - sos_commands/coredump/coredumpctl_list_--reverse
+normalized_fields:
+  - soft_core_limit
+  - hard_core_limit
+  - default_limit_core
+  - core_pattern
+  - core_uses_pid
+  - suid_dumpable
+  - storage
+  - coredump_path
+  - retention
+sub_checks:
+  - id: core_limit
+    title: Core File Size Limit
+    recommended:
+      soft_core: unlimited
+      hard_core: unlimited
+      default_limit_core: infinity
+    assessment:
+      pass_when:
+        - effective soft core limit is unlimited
+        - effective hard core limit is unlimited
+        - DefaultLimitCORE is infinity or the effective systemd default is confirmed unlimited
+      warn_when:
+        - one or more effective core limits are finite or zero
+      skipped_when:
+        - effective core limit cannot be determined from usable evidence
+
+  - id: systemd_coredump
+    title: systemd-coredump Configuration
+    recommended:
+      rhel8_plus: systemd-coredump
+      storage_path: /var/lib/systemd/coredump
+    assessment:
+      pass_when:
+        - RHEL 8 or later is configured to route application core dumps through systemd-coredump
+      warn_when:
+        - systemd-coredump is disabled or core_pattern does not route dumps to the expected systemd-coredump handler without an approved exception
+      skipped_when:
+        - core_pattern or coredump configuration cannot be determined
+    notes:
+      - kernel.core_pattern, kernel.core_uses_pid and fs.suid_dumpable may be displayed as supporting configuration values.
+      - Do not require a custom /var/crash core_pattern when systemd-coredump is correctly configured.
+
+  - id: retention
+    title: Core Dump Retention
+    recommended:
+      avoid_automatic_3d_cleanup: true
+    assessment:
+      pass_when:
+        - a local tmpfiles override prevents automatic removal of /var/lib/systemd/coredump entries according to the project retention policy
+      warn_when:
+        - only the default 3-day tmpfiles cleanup policy applies and no override/exclusion is configured
+      skipped_when:
+        - tmpfiles retention configuration cannot be determined
+    notes:
+      - The project Scope identifies the default 3-day cleanup as a retention risk and suggests excluding /var/lib/systemd/coredump from automatic deletion when longer retention is required.
+html:
+  summary_columns:
+    - hostname
+    - soft_core_limit
+    - hard_core_limit
+    - default_limit_core
+    - core_pattern
+    - retention
+    - core_limit_status
+    - coredump_status
+    - retention_status
+  notes:
+    - "Keep the three sub-check statuses visible separately rather than hiding them behind one result."
+overall_status:
+  mode: derived_from_sub_checks
+  rule: >-
+    If an overall 3.13 status is required, use the worse visible sub-check status while preserving each sub-check result.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
