@@ -13,7 +13,6 @@ evidence:
     - etc/firewalld/*
 display:
   always_show:
-    - installed
     - enabled
     - active
   when_active_show:
