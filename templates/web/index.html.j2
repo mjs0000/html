@@ -12,15 +12,18 @@
     legend { font-weight: 700; padding: 0 8px; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
     label { display: block; font-weight: 600; font-size: 14px; }
-    input, select { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 5px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 5px; }
     .full { grid-column: 1 / -1; }
+    .notice { background: #f7f8fa; border-left: 4px solid #cfd6dd; padding: 12px 14px; margin: 18px 0; }
     button { padding: 12px 22px; border: 0; border-radius: 6px; background: #0f4c81; color: white; font-weight: 700; cursor: pointer; }
     @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <h1>sosreport Structure Diagnostic</h1>
-  <div class="hint">하나 또는 여러 개의 sosreport를 업로드하여 동일한 분석 결과에서 HTML/DOCX 보고서를 생성합니다.</div>
+  <div class="hint">하나 또는 여러 개의 sosreport를 업로드하면 동일한 분석 실행에서 통합 HTML 보고서와 분석 JSON을 생성합니다.</div>
+
+  <div class="notice">현재 운영 출력은 HTML입니다. DOCX는 HTML/실제 corpus 검증 완료 후 연결합니다.</div>
 
   <form method="post" action="/reports" enctype="multipart/form-data">
     <fieldset>
@@ -54,22 +57,15 @@
     </fieldset>
 
     <fieldset>
-      <legend>진단 자료 및 출력</legend>
+      <legend>진단 자료</legend>
       <div class="grid">
         <label class="full">sosreport 파일 (복수 선택 가능)
-          <input name="sosreports" type="file" multiple required accept=".xz,.gz,.bz2,.tar,.tgz,.zip">
-        </label>
-        <label>출력 형식
-          <select name="output_format">
-            <option value="html">HTML</option>
-            <option value="docx">DOCX</option>
-            <option value="both">HTML + DOCX</option>
-          </select>
+          <input name="sosreports" type="file" multiple required accept=".xz,.gz,.bz2,.tar,.tgz">
         </label>
       </div>
     </fieldset>
 
-    <button type="submit">구조진단 보고서 생성</button>
+    <button type="submit">통합 HTML 구조진단 실행</button>
   </form>
 </body>
 </html>
