@@ -18,6 +18,4 @@ class SelinuxFacts(BaseModel):
 
     @property
     def has_usable_state(self) -> bool:
-        if self.rhel_major is not None and self.rhel_major >= 9:
-            return self.kernel_selinux_disabled is not None
         return self.runtime_mode is not None or self.configured_mode is not None
