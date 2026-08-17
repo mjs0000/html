@@ -13,12 +13,14 @@ def parse_package_update_facts(archive: SosArchive, host: HostFacts) -> PackageU
     if installed:
         path, text = installed
         facts.evidence_paths.append(path)
-        kernels = []
+        kernels: list[str] = []
+        arch = re.escape(host.architecture or r"[^.\s]+")
+        pattern = re.compile(rf"^(kernel-(?!core-|devel-|headers-|modules-|modules-core-|srpm-macros-|tools-|tools-libs-)(\S+\.{arch}))(?:\s|$)")
         for line in text.splitlines():
-            line = line.strip()
-            if line.startswith("kernel-") or line.startswith("kernel "):
-                kernels.append(line)
-        facts.installed_kernels = sorted(set(kernels))
+            match = pattern.match(line.strip())
+            if match:
+                kernels.append(match.group(1))
+        facts.installed_kernels = sorted(set(kernels), key=_kernel_package_key)
         if facts.installed_kernels:
             facts.newest_installed_kernel = facts.installed_kernels[-1]
     return facts
@@ -125,6 +127,13 @@ def parse_kdump_facts(archive: SosArchive) -> KdumpFacts:
             except ValueError:
                 facts.parameters[name] = value
     return facts
+
+
+def _kernel_package_key(package: str) -> tuple:
+    # Compare kernel NVR components naturally rather than with lexical string order.
+    version = package.removeprefix("kernel-")
+    tokens = re.findall(r"\d+|[A-Za-z]+", version)
+    return tuple((0, int(token)) if token.isdigit() else (1, token.lower()) for token in tokens)
 
 
 def _chronyc_source_count(text: str) -> int | None:
