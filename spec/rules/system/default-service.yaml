@@ -19,49 +19,24 @@ service_evidence:
     - sos_commands/systemd/systemctl_list-units
   supporting:
     - etc/systemd/system/*.wants/*
+excluded_services:
+  - iscsi.service
+  - iscsi-onboot.service
+  - libstoragemgmt.service
+  - nvmefc-boot-connections.service
+  - qemu-guest-agent.service
+  - libvirtd.service
+  - ksm.service
+  - ksmtuned.service
+  - spice-vdagentd.service
+  - vdo.service
 policy:
-  - name: iscsi.service
-    description: iscsi 장치를 검색하거나 로그인하는 서비스
-    recommendation: iscsi 미 사용시 Disable
-    conditional: iscsi_in_use
-  - name: iscsi-onboot.service
-    description: iscsi 장치를 검색하거나 로그인하는 서비스
-    recommendation: iscsi 미 사용시 Disable
-    conditional: iscsi_in_use
-  - name: libstoragemgmt.service
-    description: 다양한 스토리지 관리를 위한 개발 API 응용프로그램
-    recommendation: 개발 API를 사용하여 스토리지 어레이 미 관리시 Disable
-    conditional: storage_array_management_in_use
   - name: nis-domainname.service
     description: /etc/sysconfig/network에서 NIS DomainName을 읽거나 설정하는 서비스
     recommendation: Disable
-  - name: nvmefc-boot-connections.service
-    description: SAN용 NVMe 장치를 검색 및 마운트 시도
-    recommendation: SAN용 NVMe 미 사용시 Disable
-    conditional: nvme_fc_in_use
   - name: ostree-remount.service
     description: OSTree Remount OS / Bind Mounts
-    recommendation: 재부팅 시 간혹 emergency mode로 빠지는 문제로 Disable
-  - name: qemu-guest-agent.service
-    description: guest operating system using libvirt
-    recommendation: KVM 기반 VM이 아닐 시 Disable
-    conditional: kvm_guest
-  - name: libvirtd.service
-    description: KVM 및 가상화 환경을 사용하는 서비스
-    recommendation: KVM, 가상화 환경 미사용시 Disable
-    conditional: virtualization_in_use
-  - name: ksm.service
-    description: 가상화 환경에서 메모리 밀도를 향상하기 위한 서비스
-    recommendation: KVM, 가상화 환경 미사용시 Disable
-    conditional: virtualization_in_use
-  - name: ksmtuned.service
-    description: 가상화 환경에서 메모리 밀도를 향상하기 위한 서비스
-    recommendation: KVM, 가상화 환경 미사용시 Disable
-    conditional: virtualization_in_use
-  - name: spice-vdagentd.service
-    description: KVM 및 가상화에서 spice 원격을 제공하는 서비스
-    recommendation: KVM, 가상화 환경에서 spice client 미사용시 Disable
-    conditional: spice_in_use
+    recommendation: Disable
   - name: bluetooth.service
     description: Bluetooth 기능을 제공하는 서비스
     recommendation: Disable
@@ -92,14 +67,38 @@ policy:
   - name: selinux-autorelabel-mark.service
     description: SELinux Re-Label 확인 서비스
     recommendation: Disable
-  - name: vdo.service
-    description: VDO 볼륨에서 압축 및 중복 제거를 제공하는 서비스
-    recommendation: VDO 미 사용시 Disable
-    conditional: vdo_in_use
 assessment:
-  - 'For unconditional Disable entries, enabled or active state becomes a finding.'
-  - 'For conditional entries, determine workload/applicability first; service state alone must not be treated as a finding.'
-  - 'Preserve installed, enabled, active, masked and unit-file state when available.'
+  pass_when:
+    - all assessed services are disabled and inactive
+  warn_when:
+    - one or more assessed services are enabled or active
+  skipped_when:
+    - service state cannot be determined from usable systemd evidence
+  notes:
+    - 'Only the explicitly listed unconditional Disable services are assessed.'
+    - 'Excluded conditional services must not appear in status calculation or customer-facing service matrix.'
+    - 'Preserve enabled, active, masked and unit-file state when available.'
+html:
+  service_matrix:
+    orientation: horizontal
+    row_key: hostname
+    columns:
+      - nis-domainname.service
+      - ostree-remount.service
+      - bluetooth.service
+      - cups.service
+      - atd.service
+      - wpa_supplicant.service
+      - avahi-daemon.service
+      - mdmonitor.service
+      - ModemManager.service
+      - rhsmcertd.service
+      - rtkit-daemon.service
+      - selinux-autorelabel-mark.service
+      - status
+  default_target_columns:
+    - hostname
+    - default_target
 missing_data:
   status: SKIPPED
   include_in_report: false
