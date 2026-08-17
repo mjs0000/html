@@ -19,7 +19,7 @@ DOCX generation is intentionally deferred until the HTML report and diagnostic o
 
 Report metadata such as customer, execution period, sales representative, customer contact, and technical engineers is entered separately from sosreport data.
 
-Diagnostic results use `PASS`, `WARN`, `FAIL`, and `SKIPPED`. A/B/C grades are not used. `SKIPPED` means non-applicable or insufficient evidence according to the individual rule; it is not a failure. Customer-facing host detail hides SKIPPED items by default while corpus summary counts remain visible.
+Diagnostic results use `PASS`, `WARN`, `FAIL`, and `SKIPPED`. A/B/C grades are not used. `SKIPPED` means non-applicable or insufficient evidence according to the individual rule; it is not a failure. Customer-facing host detail hides ordinary SKIPPED items by default. `SYS_HW_CERT` is an exception: its pending/SKIPPED state remains visible because external Red Hat certification reference availability is part of the diagnostic meaning.
 
 For multi-host diagnostics, hostname is the primary report key. The integrated HTML report is designed for the current 59-host corpus and larger future batches.
 
@@ -57,7 +57,7 @@ output/
 └── report.html
 ```
 
-The corpus HTML contains target-system inventory, analysis run summary, per-diagnostic PASS/WARN/FAIL/SKIPPED distribution, hostname-centric result summary, host index, and host detail sections.
+The corpus HTML contains target-system inventory, a dedicated Hardware Certification section, analysis run summary, per-diagnostic PASS/WARN/FAIL/SKIPPED distribution, aggregated WARN/FAIL causes, hostname-centric result summary, host index, and host detail sections.
 
 ## Podman target
 
@@ -84,22 +84,25 @@ Implemented or substantially implemented:
 
 - sosreport archive reader without full extraction
 - host fact normalization
-- System 3.2-3.18 diagnostic parsers/evaluators
+- System 3.1-3.18 diagnostic parsers/evaluators/report items
 - Network 4.1-4.3 diagnostic parsers/evaluators
 - Storage 5.1 Multipath diagnostic parser/evaluator
+- 3.1 H/W identification from dmidecode with lscpu/lspci supporting evidence
+- 3.1 transparent pending state when an external Red Hat Hardware Certification provider is not configured
 - single-host analysis runner
 - corpus batch analyzer
 - common report model
 - single-host HTML renderer
 - integrated multi-host HTML report path
-- hostname inventory, status distribution, host index, and detailed diagnostic HTML tables
+- hostname inventory, status distribution, aggregated issue causes, host index, and detailed diagnostic HTML tables
+- dedicated Hardware Certification HTML section that keeps SKIPPED/Pending visible
 - FastAPI/Podman skeleton
 
 Still incomplete or requiring validation:
 
 - full 59-host production `analyze-corpus` execution after the latest parser changes
-- 3.1 Hardware Certification external Red Hat certification reference evaluation
-- final customer-facing HTML layout refinement using real 59-host output
+- authoritative Red Hat Hardware Certification reference provider/query integration for 3.1
+- final customer-facing HTML layout refinement using real 59-host production output
 - production FastAPI upload -> analysis -> integrated HTML wiring and verification
 - Podman end-to-end verification
 - DOCX renderer, deferred until after HTML completion
