@@ -5,14 +5,6 @@ title: Default Service Enabled
 parser: services
 status_model:
   values: [PASS, WARN, FAIL, SKIPPED]
-default_target:
-  evidence:
-    - etc/systemd/system/default.target
-  check: symlink_target
-  normalized_field: default_target_link
-  notes:
-    - 'Record the symbolic-link destination of /etc/systemd/system/default.target.'
-    - 'Do not infer target solely from file presence; preserve the resolved link target as evidence.'
 service_evidence:
   primary:
     - sos_commands/systemd/systemctl_list-unit-files
@@ -77,6 +69,7 @@ assessment:
   notes:
     - 'Only the explicitly listed unconditional Disable services are assessed.'
     - 'Excluded conditional services must not appear in status calculation or customer-facing service matrix.'
+    - 'default.target is excluded from this diagnostic.'
     - 'Preserve enabled, active, masked and unit-file state when available.'
 html:
   service_matrix:
@@ -96,9 +89,6 @@ html:
       - rtkit-daemon.service
       - selinux-autorelabel-mark.service
       - status
-  default_target_columns:
-    - hostname
-    - default_target
 missing_data:
   status: SKIPPED
   include_in_report: false
