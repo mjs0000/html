@@ -9,7 +9,6 @@
     body { font-family: Arial, sans-serif; margin: 0; color: #222; line-height: 1.45; background: #fff; }
     main, header { max-width: 1500px; margin: 0 auto; padding: 0 28px; }
     header { padding-top: 28px; padding-bottom: 12px; }
-    h1, h2, h3, h4 { margin-top: 1.2em; }
     nav { position: sticky; top: 0; z-index: 10; background: #fff; border-top: 1px solid #e1e5e9; border-bottom: 1px solid #e1e5e9; padding: 8px 28px; }
     nav .inner { max-width: 1500px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 14px; }
     nav a { color: #333; text-decoration: none; font-size: 13px; }
@@ -22,226 +21,202 @@
     .WARN { background: #fff8e5; }
     .FAIL { background: #fdecec; }
     .SKIPPED { background: #f3f3f3; }
-    .host-detail { margin: 24px 0 34px; padding-top: 10px; border-top: 2px solid #d8dde3; scroll-margin-top: 60px; }
-    .diagnostic { margin: 14px 0 24px; }
     .muted { color: #666; }
-    .target-systems th, .target-systems td { text-align: center; }
-    .target-systems td:nth-child(3), .target-systems td:nth-child(4) { text-align: left; }
     .wide { overflow-x: auto; }
-    details { margin: 8px 0; }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 20px; }
     .card { border: 1px solid #d8dde3; border-radius: 6px; padding: 12px; }
     .card .label { color: #666; font-size: 12px; }
     .card .value { font-size: 24px; font-weight: 700; }
+    .section-note { background: #f7f8fa; border-left: 4px solid #cfd6dd; padding: 10px 12px; }
+    .pending-note { background: #f7f8fa; border-left: 4px solid #888; padding: 10px 12px; }
     .host-index { columns: 3 260px; column-gap: 24px; padding-left: 20px; }
     .host-index li { break-inside: avoid; margin: 3px 0; }
     .host-index a { color: #333; text-decoration: none; }
-    .section-note { background: #f7f8fa; border-left: 4px solid #cfd6dd; padding: 10px 12px; }
+    .host-detail { margin: 24px 0 34px; padding-top: 10px; border-top: 2px solid #d8dde3; scroll-margin-top: 60px; }
+    .diagnostic { margin: 14px 0 24px; }
     .error-box { border: 1px solid #e0b4b4; background: #fff6f6; padding: 10px 12px; margin: 8px 0; }
+    details { margin: 8px 0; }
     @media print {
       nav { display: none; }
-      body { margin: 0; }
       main, header { max-width: none; padding: 0 12mm; }
       th { position: static; }
-      details { display: block; }
-      details > summary { font-weight: 700; }
-      .host-detail { page-break-before: auto; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>{{ metadata.report.title }}</h1>
-    <p>{{ metadata.customer.name }}</p>
-    {% if metadata.report.report_date %}<p>작성일자: {{ metadata.report.report_date }}</p>{% endif %}
-  </header>
+<header>
+  <h1>{{ metadata.report.title }}</h1>
+  <p>{{ metadata.customer.name }}</p>
+  {% if metadata.report.report_date %}<p>작성일자: {{ metadata.report.report_date }}</p>{% endif %}
+</header>
 
-  <nav>
-    <div class="inner">
-      <a href="#overview">개요</a>
-      <a href="#inventory">대상 시스템</a>
-      {% if run_summary %}<a href="#run-summary">분석 요약</a>{% endif %}
-      <a href="#diagnostic-summary">진단 요약</a>
-      <a href="#host-index">Host Index</a>
-      <a href="#details">상세 Report</a>
-    </div>
-  </nav>
+<nav><div class="inner">
+  <a href="#overview">개요</a>
+  <a href="#inventory">대상 시스템</a>
+  <a href="#hardware-cert">Hardware Certification</a>
+  {% if run_summary %}<a href="#run-summary">분석 요약</a>{% endif %}
+  <a href="#diagnostic-summary">진단 요약</a>
+  <a href="#host-index">Host Index</a>
+  <a href="#details">상세 Report</a>
+</div></nav>
 
-  <main>
-    <section id="overview">
-      <h2>1. 구조진단 개요</h2>
-      <table>
-        <tr><th>고객사</th><td>{{ metadata.customer.name }}</td><th>구독 유무</th><td>{{ metadata.customer.subscription or '-' }}</td></tr>
-        <tr><th>기간</th><td>{{ metadata.execution.period.start or '-' }} ~ {{ metadata.execution.period.end or '-' }}</td><th>장소</th><td>{{ metadata.execution.location or metadata.customer.site or '-' }}</td></tr>
-        <tr><th>고객 담당자</th><td colspan="3">{{ metadata.customer.contact.name if metadata.customer.contact else '-' }}</td></tr>
-      </table>
-    </section>
+<main>
+<section id="overview">
+  <h2>1. 구조진단 개요</h2>
+  <table>
+    <tr><th>고객사</th><td>{{ metadata.customer.name }}</td><th>구독 유무</th><td>{{ metadata.customer.subscription or '-' }}</td></tr>
+    <tr><th>기간</th><td>{{ metadata.execution.period.start or '-' }} ~ {{ metadata.execution.period.end or '-' }}</td><th>장소</th><td>{{ metadata.execution.location or metadata.customer.site or '-' }}</td></tr>
+    <tr><th>고객 담당자</th><td colspan="3">{{ metadata.customer.contact.name if metadata.customer.contact else '-' }}</td></tr>
+  </table>
+</section>
 
-    <section id="inventory">
-      <h2>2. 구조진단 대상 시스템</h2>
-      <p class="section-note">모든 결과는 Hostname 기준으로 표시합니다. Virtual 시스템은 VM, Physical 시스템은 Physical로 표시합니다.</p>
-      <div class="wide">
-        <table class="target-systems">
-          <tr><th>No</th><th>구분</th><th>hostname</th><th>H/W Model</th><th>Version</th></tr>
-          {% for host in hosts %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %}</td>
-            <td><strong>{{ host.hostname }}</strong></td>
-            <td>{{ host.hardware_model or '-' }}</td>
-            <td>{{ host.os_version or '-' }}</td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
-    </section>
+<section id="inventory">
+  <h2>2. 구조진단 대상 시스템</h2>
+  <p class="section-note">모든 결과는 Hostname 기준으로 표시합니다. Virtual 시스템은 VM, Physical 시스템은 Physical로 표시합니다.</p>
+  <div class="wide"><table>
+    <tr><th>No</th><th>구분</th><th>hostname</th><th>H/W Model</th><th>Version</th></tr>
+    {% for host in hosts %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %}</td>
+      <td><strong>{{ host.hostname }}</strong></td>
+      <td>{{ host.hardware_model or '-' }}</td>
+      <td>{{ host.os_version or '-' }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
 
-    {% if run_summary %}
-    <section id="run-summary">
-      <h2>3. 분석 실행 요약</h2>
-      <div class="cards">
-        <div class="card"><div class="label">입력 sosreport</div><div class="value">{{ run_summary.source_count }}</div></div>
-        <div class="card"><div class="label">분석 완료</div><div class="value">{{ run_summary.analyzed_count }}</div></div>
-        <div class="card"><div class="label">처리 오류</div><div class="value">{{ run_summary.error_count }}</div></div>
-      </div>
-
-      {% if run_summary.status_distribution %}
-      <h3>3.1 진단 항목별 Status 분포</h3>
-      <div class="wide">
-        <table>
-          <tr><th>Diagnostic ID</th><th>PASS</th><th>WARN</th><th>FAIL</th><th>SKIPPED</th></tr>
-          {% for diagnostic_id, counts in run_summary.status_distribution.items() %}
-          <tr>
-            <td><strong>{{ diagnostic_id }}</strong></td>
-            <td class="PASS">{{ counts.get('PASS', 0) }}</td>
-            <td class="WARN">{{ counts.get('WARN', 0) }}</td>
-            <td class="FAIL">{{ counts.get('FAIL', 0) }}</td>
-            <td class="SKIPPED">{{ counts.get('SKIPPED', 0) }}</td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
-      {% endif %}
-
-      {% if run_summary.errors %}
-      <h3>3.2 처리 오류</h3>
-      {% for error in run_summary.errors %}
-      <div class="error-box"><strong>{{ error.source }}</strong><br><code>{{ error.error }}</code></div>
+<section id="hardware-cert">
+  <h2>3. Hardware Certification</h2>
+  <p class="pending-note">3.1은 sosreport의 H/W 식별 Evidence와 외부 Red Hat Hardware Certification reference를 분리합니다. 외부 reference provider가 구성되지 않은 경우 인증 여부를 추정하지 않고 SKIPPED로 표시합니다.</p>
+  <div class="wide"><table>
+    <tr><th>Hostname</th><th>구분</th><th>H/W Model</th><th>RHEL</th><th>Status</th><th>판정</th></tr>
+    {% for host in hosts %}
+      {% for item in host.diagnostics %}
+        {% if item.id == 'SYS_HW_CERT' %}
+        <tr class="{{ item.status }}">
+          <td><strong>{{ host.hostname }}</strong></td>
+          <td>{% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %}</td>
+          <td>{{ host.hardware_model or '-' }}</td>
+          <td>{{ host.os_version or '-' }}</td>
+          <td class="status">{{ item.status }}</td>
+          <td>{{ item.summary or '-' }}</td>
+        </tr>
+        {% endif %}
       {% endfor %}
-      {% endif %}
-    </section>
-    {% endif %}
+    {% endfor %}
+  </table></div>
+</section>
 
-    <section id="diagnostic-summary">
-      <h2>{% if run_summary %}4{% else %}3{% endif %}. Hostname별 진단 요약</h2>
-      {% if large_report %}
-      <p class="section-note">대량 Host 보고서는 가독성을 위해 이 요약 표에 WARN/FAIL만 표시합니다. PASS/SKIPPED 전체 분포는 위 Status 분포에서 확인하고, Host별 PASS 상세는 아래 상세 Report에서 확인합니다.</p>
-      {% else %}
-      <p class="section-note">SKIPPED 항목은 비적용 또는 판정 Evidence 부족을 의미하며, Host 상세 목록에서는 기본적으로 숨깁니다. 전체 SKIPPED 수는 위 Status 분포에서 확인할 수 있습니다.</p>
-      {% endif %}
-      <div class="wide">
-        <table>
-          <tr><th>Hostname</th><th>구분</th><th>RHEL</th><th>Section</th><th>진단 항목</th><th>Status</th><th>검토 의견</th></tr>
-          {% for host in hosts %}
-            {% for item in host.diagnostics %}
-              {% if item.include_in_report and item.status != 'SKIPPED' and (not large_report or item.status in ['WARN', 'FAIL']) %}
-              <tr class="{{ item.status }}">
-                <td><a href="#host-{{ host.hostname|replace(' ', '-') }}"><strong>{{ host.hostname }}</strong></a></td>
-                <td>{% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %}</td>
-                <td>{{ host.os_version or '-' }}</td>
-                <td>{{ item.section }}</td>
-                <td>{{ item.title }}</td>
-                <td class="status">{{ item.status }}</td>
-                <td>{{ item.summary or '-' }}</td>
-              </tr>
-              {% endif %}
-            {% endfor %}
-          {% endfor %}
-        </table>
-      </div>
-    </section>
+{% if run_summary %}
+<section id="run-summary">
+  <h2>4. 분석 실행 요약</h2>
+  <div class="cards">
+    <div class="card"><div class="label">입력 sosreport</div><div class="value">{{ run_summary.source_count }}</div></div>
+    <div class="card"><div class="label">분석 완료</div><div class="value">{{ run_summary.analyzed_count }}</div></div>
+    <div class="card"><div class="label">처리 오류</div><div class="value">{{ run_summary.error_count }}</div></div>
+  </div>
 
-    <section id="host-index">
-      <h2>{% if run_summary %}5{% else %}4{% endif %}. Host Index</h2>
-      <ol class="host-index">
-        {% for host in hosts %}
-        <li><a href="#host-{{ host.hostname|replace(' ', '-') }}">{{ host.hostname }}</a></li>
-        {% endfor %}
-      </ol>
-    </section>
+  {% if run_summary.status_distribution %}
+  <h3>4.1 진단 항목별 Status 분포</h3>
+  <div class="wide"><table>
+    <tr><th>Diagnostic ID</th><th>PASS</th><th>WARN</th><th>FAIL</th><th>SKIPPED</th></tr>
+    {% for diagnostic_id, counts in run_summary.status_distribution.items() %}
+    <tr>
+      <td><strong>{{ diagnostic_id }}</strong></td>
+      <td class="PASS">{{ counts.get('PASS', 0) }}</td>
+      <td class="WARN">{{ counts.get('WARN', 0) }}</td>
+      <td class="FAIL">{{ counts.get('FAIL', 0) }}</td>
+      <td class="SKIPPED">{{ counts.get('SKIPPED', 0) }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% endif %}
 
-    <section id="details">
-      <h2>{% if run_summary %}6{% else %}5{% endif %}. Hostname별 상세 Report</h2>
-      {% for host in hosts %}
-        <section class="host-detail" id="host-{{ host.hostname|replace(' ', '-') }}">
-          <h3>{{ host.hostname }}{% if host.os_version %} — {{ host.os_version }}{% endif %}</h3>
-          <p class="muted">Type: {% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %} / H/W Model: {{ host.hardware_model or '-' }}</p>
-
-          {% set ns = namespace(reportable=0) %}
-          {% for item in host.diagnostics %}{% if item.include_in_report and item.status != 'SKIPPED' %}{% set ns.reportable = ns.reportable + 1 %}{% endif %}{% endfor %}
-          {% if ns.reportable == 0 %}<p class="muted">표시할 진단 결과가 없습니다.</p>{% endif %}
-
-          {% for item in host.diagnostics %}
-            {% if item.include_in_report and item.status != 'SKIPPED' %}
-            <article class="diagnostic">
-              <h4>{{ item.section }}. {{ item.title }} — <span class="status {{ item.status }}">{{ item.status }}</span></h4>
-              {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
-
-              {% if item.findings %}
-              <h5>Findings</h5>
-              <ul>{% for value in item.findings %}<li>{{ value }}</li>{% endfor %}</ul>
-              {% endif %}
-
-              {% if item.current_values %}
-              <details{% if not large_report %} open{% endif %}>
-                <summary>현재 상태</summary>
-                <table>
-                  <tr><th>항목</th><th>값</th></tr>
-                  {% for key, value in item.current_values.items() %}
-                  <tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>
-                  {% endfor %}
-                </table>
-              </details>
-              {% endif %}
-
-              {% if item.recommended_values %}
-              <details>
-                <summary>권고 기준</summary>
-                <table>
-                  <tr><th>항목</th><th>권고값</th></tr>
-                  {% for key, value in item.recommended_values.items() %}
-                  <tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>
-                  {% endfor %}
-                </table>
-              </details>
-              {% endif %}
-
-              {% for report_table in item.tables %}
-              <div class="wide">
-                <table>
-                  <tr>{% for col in report_table.columns %}<th>{{ col }}</th>{% endfor %}</tr>
-                  {% for row in report_table.rows %}
-                  <tr>{% for col in report_table.columns %}<td><code>{{ row.get(col, '-') }}</code></td>{% endfor %}</tr>
-                  {% endfor %}
-                </table>
-              </div>
-              {% endfor %}
-
-              {% if item.recommendations %}<h5>권장 사항</h5><ul>{% for value in item.recommendations %}<li>{{ value }}</li>{% endfor %}</ul>{% endif %}
-              {% if item.remediation %}<h5>조치 사항</h5><ul>{% for value in item.remediation %}<li>{{ value }}</li>{% endfor %}</ul>{% endif %}
-
-              {% if item.evidence %}
-              <details>
-                <summary>Evidence</summary>
-                <ul>{% for evidence in item.evidence %}<li><code>{{ evidence.source }}</code>: {{ evidence.detail }}</li>{% endfor %}</ul>
-              </details>
-              {% endif %}
-            </article>
-            {% endif %}
-          {% endfor %}
-        </section>
+  {% if run_summary.issue_distribution %}
+  <h3>4.2 주요 WARN/FAIL 원인 요약</h3>
+  <div class="wide"><table>
+    <tr><th>Diagnostic ID</th><th>원인</th><th>WARN</th><th>FAIL</th><th>대표 Host</th></tr>
+    {% for diagnostic_id, issues in run_summary.issue_distribution.items() %}
+      {% for issue_key, aggregate in issues.items() %}
+      <tr>
+        <td>{{ diagnostic_id }}</td><td><code>{{ issue_key }}</code></td>
+        <td class="WARN">{{ aggregate.warn_count }}</td><td class="FAIL">{{ aggregate.fail_count }}</td>
+        <td>{{ aggregate.hosts[:8]|join(', ') }}{% if aggregate.hosts|length > 8 %} 외 {{ aggregate.hosts|length - 8 }}대{% endif %}</td>
+      </tr>
       {% endfor %}
-    </section>
-  </main>
+    {% endfor %}
+  </table></div>
+  {% endif %}
+
+  {% if run_summary.errors %}
+  <h3>4.3 처리 오류</h3>
+  {% for error in run_summary.errors %}<div class="error-box"><strong>{{ error.source }}</strong><br><code>{{ error.error }}</code></div>{% endfor %}
+  {% endif %}
+</section>
+{% endif %}
+
+<section id="diagnostic-summary">
+  <h2>{% if run_summary %}5{% else %}4{% endif %}. Hostname별 진단 요약</h2>
+  {% if large_report %}
+  <p class="section-note">대량 Host 보고서는 이 요약 표에 WARN/FAIL만 표시합니다. 3.1 Hardware Certification은 위 별도 표에서 SKIPPED/Pending 상태까지 표시합니다.</p>
+  {% else %}
+  <p class="section-note">일반 SKIPPED 항목은 비적용 또는 Evidence 부족을 의미해 이 표에서는 숨깁니다. 3.1 Hardware Certification은 별도 표에서 확인합니다.</p>
+  {% endif %}
+  <div class="wide"><table>
+    <tr><th>Hostname</th><th>구분</th><th>RHEL</th><th>Section</th><th>진단 항목</th><th>Status</th><th>검토 의견</th></tr>
+    {% for host in hosts %}
+      {% for item in host.diagnostics %}
+        {% if item.id != 'SYS_HW_CERT' and item.include_in_report and item.status != 'SKIPPED' and (not large_report or item.status in ['WARN', 'FAIL']) %}
+        <tr class="{{ item.status }}">
+          <td><a href="#host-{{ host.hostname|replace(' ', '-') }}"><strong>{{ host.hostname }}</strong></a></td>
+          <td>{% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %}</td>
+          <td>{{ host.os_version or '-' }}</td><td>{{ item.section }}</td><td>{{ item.title }}</td><td class="status">{{ item.status }}</td><td>{{ item.summary or '-' }}</td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </table></div>
+</section>
+
+<section id="host-index">
+  <h2>{% if run_summary %}6{% else %}5{% endif %}. Host Index</h2>
+  <ol class="host-index">{% for host in hosts %}<li><a href="#host-{{ host.hostname|replace(' ', '-') }}">{{ host.hostname }}</a></li>{% endfor %}</ol>
+</section>
+
+<section id="details">
+  <h2>{% if run_summary %}7{% else %}6{% endif %}. Hostname별 상세 Report</h2>
+  {% for host in hosts %}
+  <section class="host-detail" id="host-{{ host.hostname|replace(' ', '-') }}">
+    <h3>{{ host.hostname }}{% if host.os_version %} — {{ host.os_version }}{% endif %}</h3>
+    <p class="muted">Type: {% if host.system_type and host.system_type|lower == 'virtual' %}VM{% elif host.system_type and host.system_type|lower == 'physical' %}Physical{% else %}{{ host.system_type or '-' }}{% endif %} / H/W Model: {{ host.hardware_model or '-' }}</p>
+
+    {% for item in host.diagnostics %}
+      {% if item.include_in_report and (item.status != 'SKIPPED' or item.id == 'SYS_HW_CERT') %}
+      <article class="diagnostic">
+        <h4>{{ item.section }}. {{ item.title }} — <span class="status {{ item.status }}">{{ item.status }}</span></h4>
+        {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
+        {% if item.findings %}<h5>Findings</h5><ul>{% for value in item.findings %}<li>{{ value }}</li>{% endfor %}</ul>{% endif %}
+        {% if item.current_values %}
+        <details{% if not large_report %} open{% endif %}><summary>현재 상태</summary><table>
+          <tr><th>항목</th><th>값</th></tr>
+          {% for key, value in item.current_values.items() %}<tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>{% endfor %}
+        </table></details>
+        {% endif %}
+        {% if item.recommended_values %}
+        <details><summary>권고 기준</summary><table><tr><th>항목</th><th>권고값</th></tr>{% for key, value in item.recommended_values.items() %}<tr><td>{{ key }}</td><td><code>{{ value }}</code></td></tr>{% endfor %}</table></details>
+        {% endif %}
+        {% for report_table in item.tables %}<div class="wide"><table><tr>{% for col in report_table.columns %}<th>{{ col }}</th>{% endfor %}</tr>{% for row in report_table.rows %}<tr>{% for col in report_table.columns %}<td><code>{{ row.get(col, '-') }}</code></td>{% endfor %}</tr>{% endfor %}</table></div>{% endfor %}
+        {% if item.recommendations %}<h5>권장 사항</h5><ul>{% for value in item.recommendations %}<li>{{ value }}</li>{% endfor %}</ul>{% endif %}
+        {% if item.remediation %}<h5>조치 사항</h5><ul>{% for value in item.remediation %}<li>{{ value }}</li>{% endfor %}</ul>{% endif %}
+        {% if item.evidence %}<details><summary>Evidence</summary><ul>{% for evidence in item.evidence %}<li><code>{{ evidence.source }}</code>: {{ evidence.detail }}</li>{% endfor %}</ul></details>{% endif %}
+      </article>
+      {% endif %}
+    {% endfor %}
+  </section>
+  {% endfor %}
+</section>
+</main>
 </body>
 </html>
