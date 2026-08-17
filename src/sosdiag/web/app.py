@@ -1,23 +1,38 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 import shutil
 import uuid
 from datetime import datetime
-from html import escape
 from pathlib import Path
 from typing import Annotated
 
-from docx import Document
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from starlette.concurrency import run_in_threadpool
+
+from sosdiag.batch import analyze_corpus
+from sosdiag.model.report import (
+    CustomerContact,
+    CustomerInfo,
+    ExecutionInfo,
+    ExecutionPeriod,
+    Person,
+    ReportInfo,
+    ReportMetadata,
+)
+from sosdiag.renderer.html import render_html
+from sosdiag.reporting import build_report, corpus_run_summary
 
 APP_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = Path("/app/data")
+DATA_DIR = Path(os.environ.get("SOSDIAG_DATA_DIR", "/app/data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 OUTPUT_DIR = DATA_DIR / "output"
 WEB_TEMPLATE_DIR = APP_ROOT / "templates" / "web"
+_UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 for directory in (UPLOAD_DIR, OUTPUT_DIR):
     directory.mkdir(parents=True, exist_ok=True)
@@ -56,8 +71,10 @@ async def create_report(
     engineer_role: Annotated[str, Form("")],
     engineer_phone: Annotated[str, Form("")],
     engineer_email: Annotated[str, Form("")],
-    output_format: Annotated[str, Form("html")],
 ) -> HTMLResponse:
+    if not sosreports:
+        raise HTTPException(status_code=400, detail="sosreport 파일이 필요합니다.")
+
     job_id = uuid.uuid4().hex[:12]
     job_date = datetime.now().strftime("%Y%m%d")
     customer_key = _safe_customer_key(customer_name)
@@ -65,84 +82,120 @@ async def create_report(
 
     job_upload_dir = UPLOAD_DIR / job_key
     job_output_dir = OUTPUT_DIR / job_key
-    job_upload_dir.mkdir(parents=True, exist_ok=True)
-    job_output_dir.mkdir(parents=True, exist_ok=True)
+    job_upload_dir.mkdir(parents=True, exist_ok=False)
+    job_output_dir.mkdir(parents=True, exist_ok=False)
 
-    saved_files: list[str] = []
-    for upload in sosreports:
-        safe_name = Path(upload.filename or "sosreport").name
-        target = job_upload_dir / safe_name
-        with target.open("wb") as fh:
-            shutil.copyfileobj(upload.file, fh)
-        saved_files.append(safe_name)
+    saved_paths: list[Path] = []
+    saved_names: set[str] = set()
+    try:
+        for upload in sosreports:
+            safe_name = Path(upload.filename or "").name
+            _validate_sosreport_filename(safe_name)
+            if safe_name in saved_names:
+                raise HTTPException(status_code=400, detail=f"중복 파일명: {safe_name}")
 
-    metadata = {
-        "customer_name": customer_name,
-        "execution_period": execution_period,
-        "location": location,
-        "customer_contact": customer_contact,
-        "sales": {
-            "name": sales_name,
-            "role": sales_role,
-            "phone": sales_phone,
-            "email": sales_email,
-        },
-        "engineers": [
-            {
-                "name": engineer_name,
-                "role": engineer_role,
-                "phone": engineer_phone,
-                "email": engineer_email,
-            }
-        ],
-    }
+            target = job_upload_dir / safe_name
+            with target.open("wb") as fh:
+                while True:
+                    chunk = await upload.read(_UPLOAD_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+            await upload.close()
 
-    # Production integration point:
-    # 1. validate and safely extract archives
-    # 2. parse each sosreport
-    # 3. evaluate YAML rules
-    # 4. aggregate a DiagnosticReport
-    # 5. pass that same model to HTML and DOCX renderers
-    generated: list[dict[str, str]] = []
+            if target.stat().st_size == 0:
+                raise HTTPException(status_code=400, detail=f"빈 파일은 분석할 수 없습니다: {safe_name}")
 
-    if output_format in {"html", "both"}:
-        html_path = job_output_dir / "structure-diagnostic.html"
-        _write_placeholder_html(html_path, job_id, metadata, saved_files)
-        generated.append(
-            {
-                "name": html_path.name,
-                "url": f"/reports/{job_key}/{html_path.name}",
-            }
-        )
+            saved_names.add(safe_name)
+            saved_paths.append(target)
 
-    if output_format in {"docx", "both"}:
-        docx_path = job_output_dir / "structure-diagnostic.docx"
-        _write_placeholder_docx(docx_path, job_id, metadata, saved_files)
-        generated.append(
-            {
-                "name": docx_path.name,
-                "url": f"/reports/{job_key}/{docx_path.name}",
-            }
-        )
-
-    template = env.get_template("result.html.j2")
-    return HTMLResponse(
-        template.render(
-            job_id=job_id,
-            job_key=job_key,
+        metadata = _build_report_metadata(
             customer_name=customer_name,
-            uploaded=saved_files,
-            generated=generated,
+            execution_period=execution_period,
+            location=location,
+            customer_contact=customer_contact,
+            sales_name=sales_name,
+            sales_role=sales_role,
+            sales_phone=sales_phone,
+            sales_email=sales_email,
+            engineer_name=engineer_name,
+            engineer_role=engineer_role,
+            engineer_phone=engineer_phone,
+            engineer_email=engineer_email,
         )
-    )
+
+        # Analyze every uploaded archive exactly once. The batch result retains the
+        # full per-host payloads so JSON and HTML are produced from the same run.
+        corpus = await run_in_threadpool(analyze_corpus, saved_paths)
+
+        json_path = job_output_dir / "corpus-analysis.json"
+        json_path.write_text(
+            json.dumps(corpus, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        report = build_report(
+            corpus.get("payloads", []),
+            metadata,
+            run_summary=corpus_run_summary(corpus),
+        )
+        html_path = job_output_dir / "report.html"
+        await run_in_threadpool(render_html, report, html_path)
+
+        generated = [
+            {
+                "name": "report.html",
+                "url": f"/reports/{job_key}/report.html",
+                "label": "통합 HTML 보고서",
+            },
+            {
+                "name": "corpus-analysis.json",
+                "url": f"/reports/{job_key}/corpus-analysis.json",
+                "label": "분석 JSON",
+            },
+        ]
+
+        template = env.get_template("result.html.j2")
+        return HTMLResponse(
+            template.render(
+                job_id=job_id,
+                job_key=job_key,
+                customer_name=customer_name,
+                uploaded=[path.name for path in saved_paths],
+                generated=generated,
+                analyzed_count=corpus.get("analyzed_count", 0),
+                error_count=corpus.get("error_count", 0),
+            )
+        )
+    except HTTPException:
+        shutil.rmtree(job_upload_dir, ignore_errors=True)
+        shutil.rmtree(job_output_dir, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(job_upload_dir, ignore_errors=True)
+        shutil.rmtree(job_output_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=f"보고서 생성 실패: {type(exc).__name__}: {exc}") from exc
 
 
 @app.get("/reports/{job_key}/{filename}")
 def download_report(job_key: str, filename: str) -> FileResponse:
-    safe_job_key = Path(job_key).name
-    safe_name = Path(filename).name
-    target = OUTPUT_DIR / safe_job_key / safe_name
-    return FileResponse(target, filename=safe_name)
+    if Path(job_key).name != job_key or Path(filename).name != filename:
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+
+    target = OUTPUT_DIR / job_key / filename
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    return FileResponse(target, filename=filename)
+
+
+def _validate_sosreport_filename(filename: str) -> None:
+    if not filename or filename != Path(filename).name:
+        raise HTTPException(status_code=400, detail="올바르지 않은 파일명입니다.")
+    if not filename.startswith("sosreport-") or ".tar" not in filename:
+        raise HTTPException(
+            status_code=400,
+            detail=f"sosreport archive 형식이 아닙니다: {filename}",
+        )
 
 
 def _safe_customer_key(customer_name: str) -> str:
@@ -152,86 +205,72 @@ def _safe_customer_key(customer_name: str) -> str:
     return value or "customer"
 
 
-def _write_placeholder_html(
-    path: Path, job_id: str, metadata: dict, uploaded: list[str]
-) -> None:
-    uploaded_rows = "".join(f"<li>{escape(name)}</li>" for name in uploaded)
-    sales = metadata["sales"]
-    engineer = metadata["engineers"][0]
-    path.write_text(
-        f"""<!doctype html>
-<html lang=\"ko\">
-<head>
-<meta charset=\"utf-8\">
-<title>{escape(metadata['customer_name'])} Health Check</title>
-<style>
-body{{font-family:Arial,sans-serif;max-width:980px;margin:40px auto;padding:0 24px;color:#222}}
-h1{{border-bottom:3px solid #0f4c81;padding-bottom:12px}}table{{width:100%;border-collapse:collapse;margin:14px 0 26px}}th,td{{border:1px solid #999;padding:8px}}th{{background:#e8eef5}}.notice{{padding:14px;border-left:5px solid #0f4c81;background:#f5f8fb}}
-</style>
-</head>
-<body>
-<h1>{escape(metadata['customer_name'])} Health Check 보고서</h1>
-<h2>1. 구조진단 개요</h2>
-<h3>1.1 수행 정보</h3>
-<table><tr><th>고객사</th><td>{escape(metadata['customer_name'])}</td><th>기간</th><td>{escape(metadata['execution_period'])}</td></tr><tr><th>장소</th><td>{escape(metadata['location'])}</td><th>고객 담당자</th><td>{escape(metadata['customer_contact'])}</td></tr></table>
-<h3>1.2 rockPLACE 영업 대표</h3>
-<table><tr><th>Name</th><th>Role</th><th>Phone</th><th>E-Mail</th></tr><tr><td>{escape(sales['name'])}</td><td>{escape(sales['role'])}</td><td>{escape(sales['phone'])}</td><td>{escape(sales['email'])}</td></tr></table>
-<h3>1.3 rockPLACE 기술 담당</h3>
-<table><tr><th>Name</th><th>Role</th><th>Phone</th><th>E-Mail</th></tr><tr><td>{escape(engineer['name'])}</td><td>{escape(engineer['role'])}</td><td>{escape(engineer['phone'])}</td><td>{escape(engineer['email'])}</td></tr></table>
-<h3>1.4 업로드된 대상 시스템 자료</h3><ul>{uploaded_rows}</ul>
-<div class=\"notice\"><strong>Job ID:</strong> {job_id}<br>현재 파일은 웹 업로드/출력 흐름 검증용 보고서입니다. 전체 sosreport 진단 엔진이 연결되면 현재 진단 항목의 A/B/C 결과와 상세 Report가 이 문서에 생성됩니다.</div>
-</body></html>""",
-        encoding="utf-8",
+def _build_report_metadata(
+    *,
+    customer_name: str,
+    execution_period: str,
+    location: str,
+    customer_contact: str,
+    sales_name: str,
+    sales_role: str,
+    sales_phone: str,
+    sales_email: str,
+    engineer_name: str,
+    engineer_role: str,
+    engineer_phone: str,
+    engineer_email: str,
+) -> ReportMetadata:
+    start, end = _parse_execution_period(execution_period)
+    contact = CustomerContact(name=customer_contact.strip()) if customer_contact.strip() else None
+    sales = (
+        Person(
+            name=sales_name.strip(),
+            role=sales_role.strip() or None,
+            phone=sales_phone.strip() or None,
+            email=sales_email.strip() or None,
+        )
+        if sales_name.strip()
+        else None
+    )
+    engineers = []
+    if engineer_name.strip():
+        engineers.append(
+            Person(
+                name=engineer_name.strip(),
+                role=engineer_role.strip() or None,
+                phone=engineer_phone.strip() or None,
+                email=engineer_email.strip() or None,
+            )
+        )
+
+    return ReportMetadata(
+        report=ReportInfo(
+            title=f"{customer_name.strip()} RHEL Health Check Report",
+            report_date=datetime.now().strftime("%Y-%m-%d"),
+        ),
+        customer=CustomerInfo(
+            name=customer_name.strip(),
+            site=location.strip() or None,
+            contact=contact,
+        ),
+        execution=ExecutionInfo(
+            period=ExecutionPeriod(start=start, end=end),
+            location=location.strip() or None,
+        ),
+        sales_representative=sales,
+        technical_engineers=engineers,
     )
 
 
-def _write_placeholder_docx(
-    path: Path, job_id: str, metadata: dict, uploaded: list[str]
-) -> None:
-    document = Document()
-    document.add_heading(f"{metadata['customer_name']} Health Check 보고서", level=0)
-    document.add_paragraph("Red Hat Enterprise Linux")
-
-    document.add_heading("1. 구조진단 개요", level=1)
-    document.add_heading("1.1 수행 정보", level=2)
-    table = document.add_table(rows=2, cols=4)
-    table.style = "Table Grid"
-    values = [
-        ("고객사", metadata["customer_name"], "기간", metadata["execution_period"]),
-        ("장소", metadata["location"], "고객 담당자", metadata["customer_contact"]),
-    ]
-    for row, values_row in zip(table.rows, values):
-        for cell, value in zip(row.cells, values_row):
-            cell.text = str(value)
-
-    document.add_heading("1.2 rockPLACE 영업 대표", level=2)
-    _add_person_table(document, metadata["sales"])
-
-    document.add_heading("1.3 rockPLACE 기술 담당", level=2)
-    _add_person_table(document, metadata["engineers"][0])
-
-    document.add_heading("1.4 업로드된 대상 시스템 자료", level=2)
-    for name in uploaded:
-        document.add_paragraph(name, style="List Bullet")
-
-    document.add_heading("2. 상세 Report", level=1)
-    document.add_paragraph(
-        "현재 파일은 웹 업로드/출력 흐름 검증용 보고서입니다. "
-        "전체 sosreport 진단 엔진이 연결되면 현재 진단 항목의 A/B/C 결과, "
-        "검토 의견, 점검 내역 및 조치 사항이 이 영역에 생성됩니다."
-    )
-    document.add_paragraph(f"Job ID: {job_id}")
-    document.save(path)
-
-
-def _add_person_table(document: Document, person: dict) -> None:
-    table = document.add_table(rows=2, cols=4)
-    table.style = "Table Grid"
-    headers = ["Name", "Role", "Phone", "E-Mail"]
-    for cell, header in zip(table.rows[0].cells, headers):
-        cell.text = header
-    for cell, key in zip(table.rows[1].cells, ["name", "role", "phone", "email"]):
-        cell.text = str(person.get(key, ""))
+def _parse_execution_period(value: str) -> tuple[str | None, str | None]:
+    text = value.strip()
+    if not text:
+        return None, None
+    for separator in ("~", "–", "—", " to "):
+        if separator in text:
+            start, end = text.split(separator, 1)
+            return start.strip() or None, end.strip() or None
+    return text, None
 
 
 def main() -> None:
