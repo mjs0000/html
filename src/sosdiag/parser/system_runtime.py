@@ -51,16 +51,29 @@ def parse_chrony_facts(archive: SosArchive) -> ChronyFacts:
         path, text = units
         facts.evidence_paths.append(path)
         facts.active = _unit_active(text, "chronyd.service")
+
+    sources = archive.first_text([
+        "sos_commands/chrony/chronyc_-n_sources",
+        "sos_commands/chrony/chronyc_sources_-v",
+    ])
+    if sources:
+        path, text = sources
+        facts.evidence_paths.append(path)
+        source_count = _chronyc_source_count(text)
+        if source_count is not None:
+            facts.configured_source_count = source_count
+
     config = archive.first_text(["etc/chrony.conf"])
     if config:
         path, text = config
         facts.evidence_paths.append(path)
-        count = 0
-        for line in text.splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and line.split()[0] in {"server", "pool", "peer"}:
-                count += 1
-        facts.configured_source_count = count
+        if facts.configured_source_count is None:
+            count = 0
+            for line in text.splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and line.split()[0] in {"server", "pool", "peer"}:
+                    count += 1
+            facts.configured_source_count = count
     return facts
 
 
@@ -112,6 +125,20 @@ def parse_kdump_facts(archive: SosArchive) -> KdumpFacts:
             except ValueError:
                 facts.parameters[name] = value
     return facts
+
+
+def _chronyc_source_count(text: str) -> int | None:
+    lowered = text.lower()
+    if "cannot talk to daemon" in lowered or "506 " in lowered:
+        return None
+    count = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if re.match(r"^[\^=#~][*+\-?x~]?\s*\S+", stripped):
+            count += 1
+    return count if count > 0 else None
 
 
 def _unit_enabled(text: str, unit: str) -> bool | None:
