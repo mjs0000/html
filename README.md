@@ -49,6 +49,18 @@ sosdiag analyze-corpus /path/to/sosreports \
   --output-dir output
 ```
 
+For the current production corpus, use the strict preflight/error mode so a missing archive or per-archive analysis failure cannot be mistaken for a complete 59-host run:
+
+```bash
+sosdiag analyze-corpus /path/to/59-sosreports \
+  --metadata examples/report-info.yaml \
+  --output-dir output \
+  --expected-count 59 \
+  --fail-on-error
+```
+
+`--expected-count 59` aborts before analysis when discovery does not return exactly 59 archives. `--fail-on-error` still writes `corpus-analysis.json` and `report.html`, but exits non-zero when any archive failed so automation can detect an incomplete production run.
+
 Generated output:
 
 ```text
@@ -141,7 +153,7 @@ Implemented or substantially implemented:
 - host fact normalization
 - System 3.1-3.18 diagnostic parsers/evaluators/report integration
 - Network 4.1-4.3 diagnostic parsers/evaluators
-- Storage 5.1 Multipath diagnostic parser/evaluator
+- Storage 5.1 Multipath parser/evaluator with explicit `dm_status`, `checker_status`, and `path_status` preservation
 - single-host analysis runner
 - corpus batch analyzer
 - common report model
@@ -150,6 +162,7 @@ Implemented or substantially implemented:
 - FastAPI multi-upload -> production batch analysis -> HTML/JSON download wiring
 - UBI9/Python 3.11 Containerfile with non-root runtime and health check
 - Podman run script with persistent volume and health wait
+- corpus CLI preflight with expected archive count and strict per-archive error exit mode
 
 Still incomplete or requiring validation:
 
@@ -157,7 +170,6 @@ Still incomplete or requiring validation:
 - 3.1 Hardware Certification external Red Hat certification reference provider
 - final customer-facing HTML layout refinement using real 59-host production output
 - real Podman build/start/upload/download execution on a host with Podman
-- Storage 5.1 Multipath explicit three-state parsing hardening
 - DOCX renderer, deferred until after HTML completion
 
 ## Project goals
