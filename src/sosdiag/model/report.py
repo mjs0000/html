@@ -45,6 +45,20 @@ class ReportMetadata(BaseModel):
     technical_engineers: list[Person] = Field(default_factory=list)
 
 
+class ReportRunError(BaseModel):
+    source: str
+    error: str
+
+
+class ReportRunSummary(BaseModel):
+    source_count: int = 0
+    analyzed_count: int = 0
+    error_count: int = 0
+    status_distribution: dict[str, dict[str, int]] = Field(default_factory=dict)
+    errors: list[ReportRunError] = Field(default_factory=list)
+
+
 class DiagnosticReport(BaseModel):
     metadata: ReportMetadata
     hosts: list[HostReport] = Field(default_factory=list)
+    run_summary: ReportRunSummary | None = None
