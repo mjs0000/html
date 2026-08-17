@@ -4,9 +4,28 @@ section: "4.2"
 title: 네트워크 커널 파라미터
 parser: sysctl
 policy_note: >-
-  프로젝트 Scope에 정의된 네트워크 성능 관련 커널 파라미터를 Hostname별로 비교한다.
-  각 파라미터는 독립 sub-check로 평가하고, 권장값 미충족 시 WARN 처리한다.
-evidence:
+  네트워크 성능 관련 커널 파라미터는 10G 이상 NIC가 실제로 구성되어 있고 Link가 Up인 시스템에서만 평가한다.
+  10G 미만이거나 Link Down이거나 10G NIC가 실제 네트워크 구성에 사용되지 않는 경우 4.2 평가 대상에서 제외한다.
+applicability:
+  applies_when:
+    - at least one configured physical NIC has negotiated speed >= 10000 Mb/s
+    - the same NIC reports Link detected: yes or equivalent link-up state
+    - the same NIC is part of an active/configured network connection
+  not_applicable_when:
+    - no configured live 10G-or-faster NIC is present
+    - all 10G-or-faster NICs are link down
+    - 10G-or-faster NIC exists only as unused/unconfigured hardware
+  not_applicable_status: SKIPPED
+  evidence:
+    primary:
+      - sos_commands/networking/ethtool_*
+      - sos_commands/networkmanager/nmcli_dev
+      - sos_commands/networkmanager/nmcli_con_--active
+    supporting:
+      - sos_commands/networkmanager/nmcli_con
+      - sos_commands/networking/ip_-br_link
+      - sos_commands/networking/ip_addr
+sysctl_evidence:
   primary:
     - sos_commands/kernel/sysctl_-a
   supporting:
@@ -43,12 +62,18 @@ parameters:
       value: 300
 assessment:
   pass_when:
-    - all applicable network kernel parameters meet the project recommendation
+    - host satisfies the configured live 10G applicability rule
+    - all network kernel parameters meet the project recommendation
   warn_when:
-    - one or more network kernel parameters do not meet the project recommendation
+    - host satisfies the configured live 10G applicability rule and one or more network kernel parameters do not meet the project recommendation
   skipped_when:
+    - host does not satisfy the configured live 10G applicability rule
+    - 10G applicability cannot be determined from usable network evidence
     - required sysctl evidence is unavailable
   notes:
+    - "Resolve 10G applicability before evaluating any sysctl value."
+    - "Speed >= 10000 Mb/s and Link detected: yes must refer to the same NIC."
+    - "The qualifying NIC must also be configured/in use; mere PCI or ethtool presence is insufficient."
     - "Evaluate runtime sysctl values from sysctl -a first."
     - "Use /etc/sysctl.conf and /etc/sysctl.d/* as supporting evidence for persistence, but do not override the runtime value."
     - "tcp_rmem and tcp_wmem are exact three-value comparisons."
@@ -57,6 +82,8 @@ html:
     orientation: horizontal
     row_key: hostname
     columns:
+      - qualifying_10g_interface
+      - link_state
       - net.core.netdev_max_backlog
       - net.ipv4.tcp_rmem
       - net.ipv4.tcp_wmem
@@ -67,7 +94,7 @@ html:
       - status
     show_recommended_row: true
     notes:
-      - "Display one host per row and one parameter per column."
+      - "Display only hosts that satisfy the configured live 10G applicability rule in the customer-facing 4.2 table."
       - "Highlight only parameters that fail the project recommendation."
 missing_data:
   status: SKIPPED
