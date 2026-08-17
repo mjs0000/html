@@ -20,10 +20,10 @@ assessment:
     - 'If neither primary source is usable, mark SKIPPED.'
   proc_cmdline_logic:
     - '/proc/cmdline is additional supporting evidence, not the primary decision source.'
-    - 'For RHEL 9 and later, record whether the exact selinux=0 token exists when /proc/cmdline is available.'
+    - 'Record whether the exact selinux=0 token exists when /proc/cmdline is available.'
+    - 'If runtime is Disabled and /etc/selinux/config is disabled, absence of selinux=0 is considered normal and must not add WARN or review findings.'
     - 'Missing /proc/cmdline alone must not cause SKIPPED when getenforce and/or /etc/selinux/config is usable.'
-    - 'If primary evidence indicates Disabled but RHEL 9+ /proc/cmdline does not contain selinux=0, keep the primary status and add a review finding rather than overriding the result.'
-    - 'If /proc/cmdline conflicts with runtime evidence, add an evidence-conflict finding.'
+    - 'Use /proc/cmdline only as supporting context or when it conflicts with an active runtime state.'
 display:
   always_show:
     - runtime_mode
@@ -39,5 +39,5 @@ missing_data:
   reason: Neither getenforce nor /etc/selinux/config provided usable SELinux state evidence.
 recommendation:
   - Keep getenforce and /etc/selinux/config visible as the main report evidence.
-  - Show /proc/cmdline as additional evidence when available, especially on RHEL 9 and later.
+  - Show /proc/cmdline as additional evidence when available.
   - Do not use A/B/C grades; report PASS, WARN, FAIL, or SKIPPED only.
