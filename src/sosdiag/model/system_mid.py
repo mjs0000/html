@@ -51,6 +51,9 @@ class CoreDumpFacts(BaseModel):
 class LogrotateSysstatFacts(BaseModel):
     logrotate_frequency: str | None = None
     logrotate_rotate_count: int | None = None
+    logrotate_frequencies: list[str] = Field(default_factory=list)
+    logrotate_rotate_counts: list[int] = Field(default_factory=list)
+    logrotate_effective_source: str | None = None
     sysstat_installed: bool | None = None
     sysstat_enabled: bool | None = None
     sar_interval_minutes: int | None = None
