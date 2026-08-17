@@ -5,31 +5,7 @@ import re
 from sosdiag.archive import SosArchive
 from sosdiag.model.host import HostFacts
 from sosdiag.model.system_tail import IrqbalanceFacts, OtherSettingsFacts, TimerFacts, TunedFacts
-
-
-def _systemd_state(archive: SosArchive, unit: str) -> tuple[bool | None, bool | None, list[str]]:
-    paths: list[str] = []
-    enabled: bool | None = None
-    active: bool | None = None
-    unit_files = archive.first_text([
-        "sos_commands/systemd/systemctl_list-unit-files",
-        "sos_commands/systemd/systemctl_list-unit-files_--no-pager",
-    ])
-    units = archive.first_text([
-        "sos_commands/systemd/systemctl_list-units",
-        "sos_commands/systemd/systemctl_list-units_--all",
-    ])
-    if unit_files:
-        paths.append(unit_files[0])
-        m = re.search(rf"^{re.escape(unit)}\s+(enabled|disabled|masked|static|indirect)\b", unit_files[1], re.M)
-        if m:
-            enabled = m.group(1) == "enabled"
-    if units:
-        paths.append(units[0])
-        m = re.search(rf"^{re.escape(unit)}\s+loaded\s+(active|inactive|failed)\b", units[1], re.M)
-        if m:
-            active = m.group(1) == "active"
-    return enabled, active, paths
+from sosdiag.parser.systemd import parse_systemd_unit_state
 
 
 def _has_live_10g(archive: SosArchive) -> bool | None:
@@ -37,7 +13,10 @@ def _has_live_10g(archive: SosArchive) -> bool | None:
     if not ethtools:
         return None
     saw_speed = False
-    for _, text in ethtools:
+    for path, text in ethtools:
+        suffix = path.split("ethtool_", 1)[-1]
+        if not suffix or suffix.startswith("-"):
+            continue
         speed = re.search(r"Speed:\s*(\d+)Mb/s", text, re.I)
         link = re.search(r"Link detected:\s*yes", text, re.I)
         if speed:
@@ -48,8 +27,13 @@ def _has_live_10g(archive: SosArchive) -> bool | None:
 
 
 def parse_tuned_facts(archive: SosArchive, host: HostFacts) -> TunedFacts:
-    enabled, active, paths = _systemd_state(archive, "tuned.service")
-    facts = TunedFacts(enabled=enabled, active=active, host_type=host.host_type, evidence_paths=paths)
+    state = parse_systemd_unit_state(archive, "tuned.service")
+    facts = TunedFacts(
+        enabled=state.enabled,
+        active=state.active,
+        host_type=host.host_type,
+        evidence_paths=list(state.evidence_paths),
+    )
     active_profile = archive.first_text([
         "sos_commands/tuned/tuned-adm_active",
         "etc/tuned/active_profile",
@@ -59,17 +43,24 @@ def parse_tuned_facts(archive: SosArchive, host: HostFacts) -> TunedFacts:
         text = active_profile[1].strip()
         m = re.search(r"Current active profile:\s*(\S+)", text, re.I)
         facts.active_profile = m.group(1) if m else (text.splitlines()[0].strip() if text else None)
+
     facts.live_10g = _has_live_10g(archive)
     if host.host_type == "virtual":
         facts.recommended_profile = "virtual-guest"
-    elif host.host_type == "physical":
-        facts.recommended_profile = "network-throughput" if facts.live_10g else "throughput-performance"
+    elif host.host_type == "physical" and facts.live_10g is False:
+        facts.recommended_profile = "throughput-performance"
+    elif host.host_type == "physical" and facts.live_10g is True:
+        # network-throughput requires an additional non-DB/non-virtualization workload determination.
+        # Sosreport network speed alone is insufficient, so leave the profile recommendation unresolved.
+        facts.recommended_profile = None
+
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
 
 
 def parse_irqbalance_facts(archive: SosArchive) -> IrqbalanceFacts:
-    enabled, active, paths = _systemd_state(archive, "irqbalance.service")
-    facts = IrqbalanceFacts(enabled=enabled, active=active, evidence_paths=paths)
+    state = parse_systemd_unit_state(archive, "irqbalance.service")
+    facts = IrqbalanceFacts(enabled=state.enabled, active=state.active, evidence_paths=list(state.evidence_paths))
     config = archive.read_text("etc/sysconfig/irqbalance")
     if config is not None:
         facts.evidence_paths.append("etc/sysconfig/irqbalance")
@@ -81,18 +72,20 @@ def parse_irqbalance_facts(archive: SosArchive) -> IrqbalanceFacts:
             if m:
                 facts.oneshot = m.group(1)
                 break
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
 
 
 def parse_timer_facts(archive: SosArchive) -> TimerFacts:
-    enabled, active, paths = _systemd_state(archive, "dnf-makecache.timer")
-    facts = TimerFacts(enabled=enabled, active=active, evidence_paths=paths)
+    state = parse_systemd_unit_state(archive, "dnf-makecache.timer")
+    facts = TimerFacts(enabled=state.enabled, active=state.active, evidence_paths=list(state.evidence_paths))
     timers = archive.first_text(["sos_commands/systemd/systemctl_list-timers_--all"])
     if timers:
         facts.evidence_paths.append(timers[0])
         facts.listed = "dnf-makecache.timer" in timers[1]
         if facts.active is None:
             facts.active = facts.listed
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
 
 
@@ -107,8 +100,12 @@ def parse_other_settings_facts(archive: SosArchive) -> OtherSettingsFacts:
         )
     else:
         all_rsyslog = archive.glob_text("etc/rsyslog.d/*")
-        if all_rsyslog or archive.read_text("etc/rsyslog.conf") is not None:
+        main_rsyslog = archive.read_text("etc/rsyslog.conf")
+        if all_rsyslog or main_rsyslog is not None:
             facts.rsyslog_filter_present = False
+            facts.evidence_paths.extend(path for path, _ in all_rsyslog)
+            if main_rsyslog is not None:
+                facts.evidence_paths.append("etc/rsyslog.conf")
 
     crontab = archive.read_text("etc/crontab")
     if crontab is not None:
@@ -121,7 +118,7 @@ def parse_other_settings_facts(archive: SosArchive) -> OtherSettingsFacts:
             m = re.match(r"MAILTO\s*=\s*(.*)$", stripped, re.I)
             if m:
                 facts.cron_mailto_present = True
-                value = m.group(1).strip().strip("'\"")
-                facts.cron_mailto = value
+                facts.cron_mailto = m.group(1).strip().strip("'\"")
                 break
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
