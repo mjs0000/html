@@ -4,11 +4,53 @@ section: "3.4"
 title: Filesystem
 parser: filesystem
 checks:
-  - id: lvm_usage
-    description: Prefer LVM-backed filesystems for standardization and extensibility.
-  - id: swap
-    description: Confirm swap is configured according to operating policy.
   - id: filesystem_type
-    description: Prefer XFS for RHEL 7 and later unless workload requirements differ.
+    description: Verify filesystem type. Prefer XFS for standard RHEL filesystems unless workload requirements differ.
+  - id: lvm_usage
+    description: Verify whether standard OS/data filesystems are LVM-backed for standardization and extensibility.
+excluded_checks:
+  - filesystem_usage_percent
+  - inode_usage_percent
+  - fstab_persistence
+  - swap_capacity
+swap_reference_only:
+  note: Swap sizing guidance is retained as reference material only and is not part of the 3.4 automated status decision.
+  guidance:
+    - ram_2gb_or_less: "recommended swap = 2 x RAM"
+    - ram_over_2gb_to_8gb: "recommended swap = RAM size"
+    - ram_over_8gb_to_64gb: "recommended swap = at least 4GB"
+    - ram_over_64gb: "recommended swap = at least 4GB"
+    - large_system_note: "at least 100GB swap is recommended for systems with over 140 logical processors or over 3TB of RAM"
+evidence:
+  primary:
+    - sos_commands/filesys/findmnt
+    - sos_commands/block/lsblk_-f_-a_-l
+  supporting:
+    - sos_commands/lvm2/pvs*
+    - sos_commands/lvm2/vgs*
+    - sos_commands/lvm2/lvs*
+assessment:
+  filesystem_type:
+    recommended: xfs
+    non_xfs_status: WARN
+  lvm_usage:
+    recommended: true
+    non_lvm_status: WARN
+  combine:
+    - "PASS when assessed filesystems use the recommended filesystem type and LVM policy."
+    - "WARN when one or more assessed filesystems are non-XFS or not LVM-backed, unless an explicit workload exception is recorded."
+    - "SKIPPED when filesystem type or LVM evidence is insufficient for a reliable decision."
+display:
+  html_columns:
+    - hostname
+    - mount_point
+    - device
+    - filesystem_type
+    - lvm
+    - status
+  notes:
+    - "Do not show filesystem usage percentage or inode usage in the 3.4 customer-facing assessment table."
+    - "Swap sizing may be shown only as reference information outside the 3.4 status calculation if needed."
 missing_data:
-  grade: UNKNOWN
+  status: SKIPPED
+  include_in_report: false
