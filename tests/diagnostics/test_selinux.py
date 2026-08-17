@@ -47,7 +47,7 @@ def test_rhel9_selinux_zero_is_supporting_evidence():
     assert result.current_values["kernel_selinux_disabled"] is True
 
 
-def test_rhel9_without_selinux_zero_remains_pass_when_primary_evidence_is_disabled():
+def test_rhel9_without_selinux_zero_is_normal_when_primary_evidence_is_disabled():
     result = evaluate_selinux(
         SelinuxFacts(
             rhel_major=9,
@@ -61,7 +61,7 @@ def test_rhel9_without_selinux_zero_remains_pass_when_primary_evidence_is_disabl
     )
 
     assert result.status == "PASS"
-    assert any("selinux=0" in finding for finding in result.findings)
+    assert result.findings == []
 
 
 def test_rhel9_missing_cmdline_does_not_skip_when_primary_evidence_exists():
