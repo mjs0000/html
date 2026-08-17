@@ -25,6 +25,7 @@ def discover_sosreports(root: str | Path) -> list[Path]:
 
 def analyze_corpus(sources: Iterable[str | Path]) -> dict:
     hosts: list[dict] = []
+    payloads: list[dict] = []
     by_diagnostic: dict[str, Counter[str]] = defaultdict(Counter)
     errors: list[dict] = []
 
@@ -35,6 +36,7 @@ def analyze_corpus(sources: Iterable[str | Path]) -> dict:
             errors.append({"source": str(source), "error": f"{type(exc).__name__}: {exc}"})
             continue
 
+        payloads.append(result)
         hostname = result.get("host", {}).get("hostname") or Path(source).name
         diagnostics = result.get("diagnostics", [])
         compact = []
@@ -68,5 +70,6 @@ def analyze_corpus(sources: Iterable[str | Path]) -> dict:
         "error_count": len(errors),
         "status_distribution": distribution,
         "hosts": hosts,
+        "payloads": payloads,
         "errors": errors,
     }
