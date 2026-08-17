@@ -26,7 +26,7 @@ If required sosreport evidence is absent, ambiguous, or insufficient for a relia
 ## Version-specific rules
 When a diagnostic rule differs by RHEL major version, the engine must identify the RHEL major version before evaluating that rule. If the version cannot be determined reliably, the version-specific diagnostic is `SKIPPED`.
 
-For SELinux specifically, RHEL 9 and later require `/proc/cmdline` evidence and inspection of the exact `selinux=0` kernel parameter. Runtime state and `/etc/selinux/config` remain supporting evidence, but configuration alone must not produce `PASS` for a RHEL 9+ host when `/proc/cmdline` is unavailable.
+For SELinux, the primary evidence is runtime state from `getenforce`/`sestatus` and persistent state from `/etc/selinux/config` on all supported RHEL major versions. `/proc/cmdline` and the exact `selinux=0` token are supporting evidence only and must not override the primary state. Runtime `Disabled` plus configured `disabled` is `PASS` regardless of whether `selinux=0` is present. If one primary source is available, the diagnostic may still be evaluated while preserving a missing-source finding; if neither primary source is available, the item is `SKIPPED`.
 
 ## Manually supplied report metadata
 The following values are not inferred from sosreport and must be supplied independently through a report input file such as `report-info.yaml`:
