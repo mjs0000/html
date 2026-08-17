@@ -58,6 +58,8 @@ _REPEAT_SIGNATURES = [
     ("repeated timeout", re.compile(r"\btime(?:d)?\s*out\b|\btimeout\b", re.I), "device"),
 ]
 
+_LOGROTATE_FREQS = {"daily", "weekly", "monthly", "yearly"}
+
 
 def parse_error_log_facts(archive: SosArchive) -> ErrorLogFacts:
     facts = ErrorLogFacts()
@@ -106,12 +108,17 @@ def parse_error_log_facts(archive: SosArchive) -> ErrorLogFacts:
         if len(occurrences) < 3:
             continue
         source, message = occurrences[0]
+        first_ts = _extract_log_timestamp(occurrences[0][1])
+        last_ts = _extract_log_timestamp(occurrences[-1][1])
         finding = ErrorFinding(
             source=source,
             severity="WARN",
             signature=signature,
             message=message,
             count=len(occurrences),
+            timestamp=first_ts,
+            first_seen=first_ts,
+            last_seen=last_ts,
             component=_infer_component(message),
             impact_category="device",
         )
@@ -131,17 +138,37 @@ def _record_error(
 ) -> None:
     normalized = _normalize_log_signature(message)
     key = (severity, signature, normalized)
+    timestamp = _extract_log_timestamp(message)
     if key not in target:
         target[key] = ErrorFinding(
             source=source,
             severity=severity,
             signature=signature,
             message=message,
+            timestamp=timestamp,
+            first_seen=timestamp,
+            last_seen=timestamp,
             component=_infer_component(message),
             impact_category=impact,
         )
     else:
         target[key].count += 1
+        if timestamp:
+            target[key].last_seen = timestamp
+
+
+def _extract_log_timestamp(line: str) -> str | None:
+    patterns = [
+        r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:?\d{2}|Z)?)",
+        r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})",
+        r"^\[\s*([0-9]+(?:\.[0-9]+)?)\]",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, line)
+        if match:
+            return match.group(1)
+    return None
 
 
 def _normalize_log_signature(line: str) -> str:
@@ -252,13 +279,41 @@ def _prevents_coredump_cleanup(text: str) -> bool:
 
 def parse_logrotate_sysstat_facts(archive: SosArchive) -> LogrotateSysstatFacts:
     facts = LogrotateSysstatFacts()
+
+    config_entries: list[tuple[str, str]] = []
     conf = archive.read_text("etc/logrotate.conf")
     if conf is not None:
-        facts.evidence_paths.append("etc/logrotate.conf")
-        facts.logrotate_frequency = _first_directive(conf, ["daily", "weekly", "monthly", "yearly"])
-        rotate = re.search(r"^\s*rotate\s+(\d+)\b", conf, re.M)
-        if rotate:
-            facts.logrotate_rotate_count = int(rotate.group(1))
+        config_entries.append(("etc/logrotate.conf", conf))
+    config_entries.extend(archive.glob_text("etc/logrotate.d/*"))
+
+    frequencies: list[str] = []
+    rotate_counts: list[int] = []
+    for path, text in config_entries:
+        facts.evidence_paths.append(path)
+        frequencies.extend(_all_logrotate_frequencies(text))
+        rotate_counts.extend(_all_logrotate_rotate_counts(text))
+
+    debug_entries = archive.glob_text("sos_commands/logrotate/logrotate_-d_*")
+    debug_freqs: list[str] = []
+    debug_counts: list[int] = []
+    for path, text in debug_entries:
+        facts.evidence_paths.append(path)
+        debug_freqs.extend(_all_logrotate_frequencies(text))
+        debug_counts.extend(_all_logrotate_rotate_counts(text))
+
+    if debug_freqs or debug_counts:
+        facts.logrotate_effective_source = "logrotate_debug"
+        frequencies = debug_freqs or frequencies
+        rotate_counts = debug_counts or rotate_counts
+    elif config_entries:
+        facts.logrotate_effective_source = "config"
+
+    facts.logrotate_frequencies = list(dict.fromkeys(frequencies))
+    facts.logrotate_rotate_counts = list(dict.fromkeys(rotate_counts))
+    if len(facts.logrotate_frequencies) == 1:
+        facts.logrotate_frequency = facts.logrotate_frequencies[0]
+    if len(facts.logrotate_rotate_counts) == 1:
+        facts.logrotate_rotate_count = facts.logrotate_rotate_counts[0]
 
     rpms = archive.first_text(["installed-rpms", "sos_commands/rpm/rpm_-qa"])
     if rpms:
@@ -301,17 +356,28 @@ def _extract_core_limit(text: str) -> str | None:
     return None
 
 
-def _first_directive(text: str, names: list[str]) -> str | None:
-    for line in text.splitlines():
-        stripped = line.strip().lower()
-        if stripped in names:
-            return stripped
-    return None
+def _all_logrotate_frequencies(text: str) -> list[str]:
+    values: list[str] = []
+    for raw in text.splitlines():
+        stripped = raw.strip().lower()
+        if not stripped or stripped.startswith("#"):
+            continue
+        token = stripped.split()[0]
+        if token in _LOGROTATE_FREQS:
+            values.append(token)
+    return values
+
+
+def _all_logrotate_rotate_counts(text: str) -> list[int]:
+    values: list[int] = []
+    for match in re.finditer(r"^\s*rotate\s+(\d+)\b", text, re.I | re.M):
+        values.append(int(match.group(1)))
+    return values
 
 
 def _parse_oncalendar_interval(text: str) -> int | None:
     values = []
-    for match in re.finditer(r"^\s*OnCalendar\s*=\s*([^#\n]+)", text, re.I | re.M):
+    for match in re.finditer(r"^\s*OnCalendar\s*=\s*([^#\n]*)", text, re.I | re.M):
         value = match.group(1).strip()
         if not value:
             values.clear()
@@ -321,6 +387,6 @@ def _parse_oncalendar_interval(text: str) -> int | None:
         match = re.search(r"\*:00/(\d+)\b", value)
         if match:
             return int(match.group(1))
-        if value in {"minutely", "*-*-* *:*:00"}:
+        if value.lower() in {"minutely", "*-*-* *:*:00"}:
             return 1
     return None
