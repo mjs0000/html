@@ -4,7 +4,7 @@ section: "3.5"
 title: 주요 패키지 업데이트
 parser: packages
 render:
-  html: false
+  html: true
   docx: true
   json: true
 package_groups:
@@ -31,8 +31,10 @@ normalized_fields:
   - release
   - arch
   - installed_nevra
+  - running_kernel
   - advisory_status
   - external_reference_source
+  - external_reference_url
   - external_reference_version
   - external_reference_checked_at
 policy:
@@ -45,11 +47,41 @@ policy:
   collected_updateinfo_may_support_assessment: true
   absence_of_updateinfo_is_failure: false
   do_not_assess_other_packages: true
+  comparison_scope:
+    - host_rhel_major_minor
+    - architecture
+    - package_family
+    - applicable_support_stream
   unknown_reference:
     status: SKIPPED
     include_in_report: false
+assessment:
+  pass_when:
+    - installed package level is at or above the applicable authoritative Red Hat reference level for the evaluated stream
+  warn_when:
+    - installed package level is older than the applicable authoritative Red Hat reference level
+  skipped_when:
+    - no trustworthy external Red Hat comparison reference is available for the host support stream or architecture
+  fail_when:
+    - only when a future project rule explicitly defines a package state as FAIL; do not infer FAIL merely from an available newer package
+html:
+  primary_key: hostname
+  columns:
+    - hostname
+    - rhel_version
+    - package_group
+    - installed_version
+    - reference_version
+    - reference
+    - status
+  reference:
+    label_field: external_reference_source
+    url_field: external_reference_url
+    render_as_link_when_url_present: true
+    open_in_new_tab: true
 notes:
   - The parser may read the complete installed package inventory, but only kernel, openssl, and openssh package families become reportable facts for this diagnostic.
   - Installed version strings alone must never determine PASS/WARN/FAIL.
-  - Final status requires comparison with an external authoritative Red Hat reference appropriate to the host RHEL major/minor version and architecture.
+  - Final status requires comparison with an external authoritative Red Hat reference appropriate to the host RHEL major/minor version, architecture, and applicable support stream.
   - Collected dnf/yum updateinfo is supporting evidence but does not replace the external comparison when the reference is unavailable or stale.
+  - For kernel, preserve both the running kernel and installed kernel package levels; do not assume the newest installed kernel is currently booted.
