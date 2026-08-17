@@ -9,6 +9,10 @@ CONTAINER="${CONTAINER:-sosdiag}"
 PORT="${PORT:-8080}"
 DATA_DIR="${DATA_DIR:-/data/sosdiag-data}"
 CONTAINER_DATA_DIR="/data"
+BUILD_NETWORK="${BUILD_NETWORK:-host}"
+SOSDIAG_PIP_INDEX_URL="${SOSDIAG_PIP_INDEX_URL:-}"
+SOSDIAG_PIP_TRUSTED_HOST="${SOSDIAG_PIP_TRUSTED_HOST:-}"
+SOSDIAG_PIP_CERT="${SOSDIAG_PIP_CERT:-}"
 
 printf '%s\n' "========================================"
 printf '%s\n' "  sosreport Structure Diagnostic"
@@ -32,7 +36,16 @@ if podman container exists "$CONTAINER" 2>/dev/null; then
 fi
 
 echo "> Building image: $IMAGE"
-podman build -t "$IMAGE" -f Containerfile .
+echo "> Build network: $BUILD_NETWORK"
+podman build \
+  --network="$BUILD_NETWORK" \
+  --build-arg "SOSDIAG_PIP_INDEX_URL=$SOSDIAG_PIP_INDEX_URL" \
+  --build-arg "SOSDIAG_PIP_TRUSTED_HOST=$SOSDIAG_PIP_TRUSTED_HOST" \
+  --build-arg "SOSDIAG_PIP_CERT=$SOSDIAG_PIP_CERT" \
+  --build-arg "HTTP_PROXY=${HTTP_PROXY:-${http_proxy:-}}" \
+  --build-arg "HTTPS_PROXY=${HTTPS_PROXY:-${https_proxy:-}}" \
+  --build-arg "NO_PROXY=${NO_PROXY:-${no_proxy:-}}" \
+  -t "$IMAGE" -f Containerfile .
 
 echo "> Starting container: $CONTAINER"
 podman run -d \
