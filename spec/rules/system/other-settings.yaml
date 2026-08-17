@@ -1,0 +1,62 @@
+id: SYS_OTHER_SETTINGS
+category: System
+section: "3.18"
+title: 기타 설정 (rsyslog / cron)
+parser: other_settings
+policy_note: >-
+  3.18은 rsyslog의 systemd session/slice 관련 로그 제외 설정과 cron 메일 발송 설정을
+  별도 sub-check로 평가한다.
+sub_checks:
+  - id: rsyslog_ignore_systemd_session_slice
+    title: rsyslog systemd session/slice filter
+    evidence:
+      primary:
+        - etc/rsyslog.d/0-ignore-systemd-session-slice.conf
+      supporting:
+        - etc/rsyslog.conf
+        - etc/rsyslog.d/*
+    assessment:
+      pass_when:
+        - /etc/rsyslog.d/0-ignore-systemd-session-slice.conf exists and contains the project filter configuration for systemd session/slice messages
+      warn_when:
+        - the file is absent or the required filter configuration is not present
+      skipped_when:
+        - rsyslog configuration evidence cannot be evaluated
+    notes:
+      - "Treat the dedicated 0-ignore-systemd-session-slice.conf file as the primary project policy artifact."
+
+  - id: cron_mailto
+    title: Cron MAILTO
+    evidence:
+      primary:
+        - etc/crontab
+      supporting:
+        - etc/cron.d/*
+    recommended:
+      value: empty
+    assessment:
+      pass_when:
+        - /etc/crontab explicitly configures MAILTO="" or MAILTO='' or an equivalent empty MAILTO value
+      warn_when:
+        - MAILTO is set to a non-empty recipient or the project empty MAILTO setting is absent
+      skipped_when:
+        - /etc/crontab cannot be evaluated
+    notes:
+      - "The project policy expects cron-generated mail to be disabled by setting MAILTO to an empty value."
+
+html:
+  summary_columns:
+    - hostname
+    - rsyslog_filter
+    - cron_mailto
+    - rsyslog_status
+    - cron_status
+  notes:
+    - "Keep rsyslog and cron statuses visible separately."
+overall_status:
+  mode: derived_from_sub_checks
+  rule: >-
+    If an overall 3.18 status is required, use the worse visible sub-check status while preserving each sub-check result.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
