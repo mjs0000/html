@@ -1,13 +1,15 @@
 id: NET_NETSTATE
 category: Network
 section: "4.3"
-source_section: "4.4"
 title: Netstate
 parser: netstate
 automation: full
+policy_note: >-
+  Netstate는 먼저 NetworkManager가 실제로 인터페이스를 관리하는지 판단하고,
+  사용 중인 경우 활성 Connection과 실제 Link 상태를 함께 확인한다.
+  NetworkManager를 사용하지 않는 시스템은 nmcli 부재를 장애로 보지 않고 ip/ethtool 기반 Link 상태만 표시한다.
 networkmanager_detection:
   normalized_fields:
-    - networkmanager_installed
     - networkmanager_enabled
     - networkmanager_active
     - networkmanager_in_use
@@ -24,6 +26,36 @@ networkmanager_detection:
     - sos_commands/networking/ip_-d_address
     - sos_commands/networking/ip_-o_addr
     - sos_commands/networking/ethtool_*
+sub_checks:
+  - id: networkmanager_state
+    title: NetworkManager State
+    applicability:
+      applies_when:
+        - NetworkManager is confirmed to be in use for one or more interfaces
+      not_applicable_when:
+        - NetworkManager is not used to manage interfaces
+      not_applicable_status: SKIPPED
+    assessment:
+      pass_when:
+        - NetworkManager is active and usable for managed interfaces
+      warn_when:
+        - NetworkManager is expected/in use but service is inactive or management state is abnormal
+      skipped_when:
+        - NetworkManager usage cannot be determined
+
+  - id: active_connection_link
+    title: Active Connection / Link State
+    assessment:
+      pass_when:
+        - every active/configured interface that is expected to carry traffic has carrier/link up
+      warn_when:
+        - at least one active/configured interface that is expected to carry traffic has carrier/link down
+      skipped_when:
+        - active/configured interface set or link state cannot be determined
+    notes:
+      - "Do not treat unused or intentionally disconnected interfaces as WARN unless they are part of an active/configured connection expected to carry traffic."
+      - "For bonded interfaces, 4.1 Bonding remains authoritative for per-Slave redundancy state; 4.3 shows current connection/link state."
+
 when_networkmanager_in_use:
   display_connection_fields:
     - connection_name
@@ -56,15 +88,49 @@ when_networkmanager_not_in_use:
       - rx_dropped
       - tx_errors
       - tx_dropped
+counter_policy:
+  rx_tx_error_drop_counters:
+    assessment: display_only
+    note: >-
+      RX/TX errors and dropped counters are displayed as evidence only. No project threshold is currently defined,
+      so non-zero values alone must not change PASS/WARN status.
 policy:
   nmcli_missing_is_failure: false
   fabricate_missing_networkmanager_values: false
-  grade_policy_state: pending_policy
+html:
+  summary_columns:
+    - hostname
+    - networkmanager_in_use
+    - active_connections
+    - link_state
+    - networkmanager_status
+    - link_status
+  interface_detail_columns:
+    - hostname
+    - connection_name
+    - interface_name
+    - connection_type
+    - ipv4_addresses
+    - ipv4_gateway
+    - dns_servers
+    - mtu
+    - autoconnect
+    - carrier
+    - operational_state
+    - speed_mbps
+    - rx_errors
+    - rx_dropped
+    - tx_errors
+    - tx_dropped
+  notes:
+    - "Show a compact hostname summary first, followed by interface details."
+    - "Do not invent thresholds for RX/TX error/drop counters."
+overall_status:
+  mode: derived_from_sub_checks
+  rule: >-
+    If an overall 4.3 status is required, use the worse visible sub-check status while preserving NetworkManager State
+    and Active Connection / Link State separately.
 missing_data:
   status: SKIPPED
   include_in_report: false
   reason: NetworkManager usage and current link state could not be determined from usable evidence.
-notes:
-  - First determine whether NetworkManager is actually managing interfaces.
-  - If NetworkManager is used, report collected configuration values; if it is not used, report that fact and current link state from ip/ethtool evidence.
-  - No A/B/C thresholds for link error/drop counters were supplied, so retain them as displayed facts until policy is defined.
