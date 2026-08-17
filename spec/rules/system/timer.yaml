@@ -5,29 +5,37 @@ title: Timer
 parser: systemd_timer
 status_model:
   values: [PASS, WARN, FAIL, SKIPPED]
+policy_note: >-
+  Timer 항목은 dnf-makecache.timer 상태를 평가한다. 프로젝트 Scope에서는
+  dnf-makecache.timer가 주기적으로 dnf cache를 생성하면서 로그를 발생시키므로
+  disable 상태를 권장한다. sysstat-collect.timer 수집 주기는 3.14 Logrotate / sysstat(SAR)에서 별도로 평가한다.
 evidence:
-  inventory:
+  primary:
     - sos_commands/systemd/systemctl_list-timers_--all
-  timer_units:
-    - usr/lib/systemd/system/*.timer
-    - etc/systemd/system/timers.target.wants/*
-  sysstat_collect:
-    - usr/lib/systemd/system/sysstat-collect.timer
-    - etc/systemd/system/sysstat.service.wants/sysstat-collect.timer
-    - etc/systemd/system/sysstat-collect.timer.d/*
-processing:
-  - 'Inventory timers first using systemctl list-timers --all output.'
-  - 'Evaluate only timer units with an explicit policy.'
-  - 'For sysstat-collect.timer, preserve the effective OnCalendar value and whether an override exists.'
+    - sos_commands/systemd/systemctl_list-unit-files
+  supporting:
+    - etc/systemd/system/timers.target.wants/dnf-makecache.timer
+    - usr/lib/systemd/system/dnf-makecache.timer
 normalized_fields:
-  - timer_name
-  - next_run
-  - last_run
-  - active
-  - enabled
-  - on_calendar
-  - override_present
-  - conditionally_relevant
+  - dnf_makecache_timer_enabled
+  - dnf_makecache_timer_active
+  - dnf_makecache_timer_listed
+assessment:
+  pass_when:
+    - dnf-makecache.timer is disabled and not active
+  warn_when:
+    - dnf-makecache.timer is enabled or active
+  skipped_when:
+    - dnf-makecache.timer state cannot be determined from usable evidence
+  notes:
+    - "Do not evaluate sysstat-collect.timer in 3.17; SAR interval belongs to 3.14."
+    - "The recommended project action is equivalent to 'systemctl disable --now dnf-makecache.timer'."
+html:
+  summary_columns:
+    - hostname
+    - dnf_makecache_timer_enabled
+    - dnf_makecache_timer_active
+    - status
 missing_data:
   status: SKIPPED
   include_in_report: false
