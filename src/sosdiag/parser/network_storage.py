@@ -220,13 +220,17 @@ def parse_multipath_facts(archive: SosArchive) -> MultipathFacts:
         if "policy=" in line or "prio=" in line:
             group_index += 1
             continue
+        # multipath -ll path tail columns are: dm_status checker_status path_status.
+        # Example: "... 8:16 active ready running". Preserve all three so
+        # readiness and the kernel path state cannot be accidentally conflated.
         pm = re.search(r"(\d+:\d+:\d+:\d+)\s+(\S+)\s+\d+:\d+\s+(\S+)\s+(\S+)\s+(\S+)", line)
         if pm:
             current.paths.append(MultipathPath(
                 hctl=pm.group(1),
                 device=pm.group(2),
-                path_state=pm.group(3).lower(),
-                dm_state=pm.group(4).lower(),
+                dm_status=pm.group(3).lower(),
+                checker_status=pm.group(4).lower(),
+                path_status=pm.group(5).lower(),
                 path_group=str(group_index) if group_index else None,
             ))
     conf = archive.first_text(["sos_commands/multipath/multipathd_show_config"])
