@@ -85,11 +85,13 @@ def evaluate_kdump(facts: KdumpFacts) -> DiagnosticResult:
             status="SKIPPED", summary="Kdump 상태를 평가할 Evidence가 없습니다.", include_in_report=False, evidence=evidence,
         )
 
-    kdump_status = "SKIPPED"
-    if state_known and reservation_known:
-        service_ok = facts.enabled is not False and facts.active is not False
-        reservation_ok = (facts.kexec_crash_size or 0) > 0 or bool(facts.crashkernel_parameter)
-        kdump_status = "PASS" if service_ok and reservation_ok else "WARN"
+    reservation_ok = (facts.kexec_crash_size or 0) > 0 or bool(facts.crashkernel_parameter)
+    if facts.active is False or facts.enabled is False or (reservation_known and not reservation_ok):
+        kdump_status = "WARN"
+    elif facts.active is True and reservation_known and reservation_ok:
+        kdump_status = "PASS"
+    else:
+        kdump_status = "SKIPPED"
 
     recommended = {
         "kernel.nmi_watchdog": 0,
@@ -98,18 +100,36 @@ def evaluate_kdump(facts: KdumpFacts) -> DiagnosticResult:
         "kernel.unknown_nmi_panic": 1,
         "kernel.sysrq": 1,
     }
-    compared = [name for name in recommended if name in facts.parameters]
-    parameter_status = "SKIPPED"
-    if compared:
-        parameter_status = "PASS" if all(facts.parameters[name] == recommended[name] for name in compared) else "WARN"
+    present = [name for name in recommended if name in facts.parameters]
+    missing = [name for name in recommended if name not in facts.parameters]
+    mismatched = [name for name in present if facts.parameters[name] != recommended[name]]
+    if mismatched:
+        parameter_status = "WARN"
+    elif missing:
+        parameter_status = "SKIPPED"
+    else:
+        parameter_status = "PASS"
 
     visible = [status for status in (kdump_status, parameter_status) if status != "SKIPPED"]
-    overall = "WARN" if "WARN" in visible else ("PASS" if visible and all(s == "PASS" for s in visible) else "SKIPPED")
-    rows = [{"parameter": name, "value": facts.parameters.get(name), "recommended": recommended.get(name), "display_only": name not in recommended} for name in facts.parameters]
+    overall = "WARN" if "WARN" in visible else ("PASS" if len(visible) == 2 and all(s == "PASS" for s in visible) else "SKIPPED")
+    rows = [
+        {
+            "parameter": name,
+            "value": facts.parameters.get(name),
+            "recommended": recommended.get(name),
+            "display_only": name not in recommended,
+        }
+        for name in facts.parameters
+    ]
     return DiagnosticResult(
         id="SYS_KDUMP", category="System", section="3.9", title="덤프 수집(Kdump)", status=overall,
         summary="Kdump State와 관련 Kernel Parameter를 별도 상태로 평가합니다.",
-        current_values={**facts.model_dump(), "kdump_status": kdump_status, "kernel_parameter_status": parameter_status},
+        current_values={
+            **facts.model_dump(),
+            "kdump_status": kdump_status,
+            "kernel_parameter_status": parameter_status,
+            "missing_required_parameters": missing,
+        },
         recommended_values=recommended, evidence=evidence,
         tables=[ReportTable(columns=["parameter", "value", "recommended", "display_only"], rows=rows)] if rows else [],
         include_in_report=overall != "SKIPPED",
