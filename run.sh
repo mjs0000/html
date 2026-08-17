@@ -48,11 +48,13 @@ podman build \
   -t "$IMAGE" -f Containerfile .
 
 echo "> Starting container: $CONTAINER"
+# :U adjusts ownership of this dedicated host data directory for the image user
+# (UID 1001). :Z keeps the SELinux relabeling needed on RHEL hosts.
 podman run -d \
   --name "$CONTAINER" \
   -p "$PORT:8000" \
   -e SOSDIAG_DATA_DIR="$CONTAINER_DATA_DIR" \
-  -v "$DATA_DIR:$CONTAINER_DATA_DIR:Z" \
+  -v "$DATA_DIR:$CONTAINER_DATA_DIR:Z,U" \
   --restart unless-stopped \
   "$IMAGE" >/dev/null
 
