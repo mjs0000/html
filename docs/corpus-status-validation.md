@@ -1,16 +1,18 @@
 # 59-host corpus status validation
 
-This document records an independent, single-pass validation of selected diagnostics against the current 59-sosreport corpus.
+This document records independent, single-pass validation evidence against the current 59-sosreport corpus.
 
 ## Scope and method
 
 - Corpus size: 59 sosreport archives.
-- Processing errors: 0.
+- Processing errors: 0 in the recorded independent scans.
 - Validation was performed by streaming each tar.xz once and extracting only the evidence required by the selected rules.
 - Status vocabulary is limited to PASS, WARN, FAIL, and SKIPPED.
-- These figures are intended as corpus validation evidence. They must not replace the production `sosdiag` runner when final customer-facing reports are generated.
+- These figures are corpus validation evidence. They must not replace the production `sosdiag` runner when final customer-facing reports are generated.
 
 ## Selected diagnostic distribution
+
+The system/storage figures below come from the earlier independent scan. The network figures for 4.2 and 4.3 were revalidated later after tightening physical-NIC applicability and excluding non-reportable virtual links.
 
 | Diagnostic | PASS | WARN | FAIL | SKIPPED |
 |---|---:|---:|---:|---:|
@@ -18,8 +20,8 @@ This document records an independent, single-pass validation of selected diagnos
 | SYS_TIME_SYNC (3.8) | 0 | 54 | 0 | 5 |
 | SYS_KDUMP (3.9) | 24 | 35 | 0 | 0 |
 | NET_BONDING (4.1) | 33 | 0 | 0 | 26 |
-| NET_KERNEL_PARAM (4.2) | 0 | 49 | 0 | 10 |
-| NET_NETSTATE (4.3) | 53 | 6 | 0 | 0 |
+| NET_KERNEL_PARAM (4.2), revalidated | 0 | 54 | 0 | 5 |
+| NET_NETSTATE (4.3), revalidated | 59 | 0 | 0 | 0 |
 | STG_MULTIPATH (5.1) | 6 | 0 | 0 | 53 |
 
 ## Host-level exceptions and applicability
@@ -43,9 +45,9 @@ All other 55 hosts satisfied the project-disabled SELinux policy in the independ
 
 ### 3.9 Kdump
 
-- 24 hosts evaluated PASS.
-- 35 hosts evaluated WARN when the combined Kdump state/reservation and required Kdump-related sysctl checks were applied.
-- `kdumpctl showmem` is not required for PASS because the current corpus does not consistently contain it.
+- 24 hosts evaluated PASS under the earlier Kdump validation logic.
+- 35 hosts evaluated WARN in that earlier scan.
+- Production Kdump semantics were tightened after this scan, so these figures must not be presented as current production output.
 
 ### 4.1 Bonding
 
@@ -53,24 +55,33 @@ All other 55 hosts satisfied the project-disabled SELinux policy in the independ
 - 26 hosts have no Bonding configuration and are therefore SKIPPED/non-applicable.
 - The real corpus commonly stores Bonding data under `proc/<pid>/net/bonding/*`; the parser must support this path family.
 
-### 4.2 Network Kernel Parameters
+### 4.2 Network Kernel Parameters — revalidated
 
-- 49 hosts met the configured, link-up, 10G-or-faster applicability test and had at least one parameter outside the project recommendation, therefore WARN.
-- 10 hosts were SKIPPED because they were non-applicable or did not have enough evidence for a complete parameter evaluation.
-- Applicability must be tied to an in-use physical NIC. Bond/bridge/other virtual interfaces must not by themselves make a host applicable.
+A dedicated 59-host network revalidation was executed after the applicability rule was tightened. The scan completed all 59 archives with no processing errors.
 
-### 4.3 Netstate
+- 54 hosts have at least one configured/in-use, link-up physical Ethernet interface negotiated at 10G or faster and evaluated WARN because one or more project network sysctl recommendations were not met.
+- 5 hosts are SKIPPED because no qualifying in-use 10G+ physical Ethernet interface was established.
+- The five SKIPPED hosts are `FDID-GW-TS`, `FDID-NODE-TS1`, `FDID-NODE-TS2`, `FDID-NODE-TS3`, and `datacat-test`.
+- Bond, bridge, virbr, and other virtual interfaces do not by themselves make a host applicable.
+- Physical bond slaves may qualify when the underlying Ethernet device itself is active/configured, link-up, and 10G+.
 
-WARN hosts:
+This supersedes the earlier independent figure of WARN 49 / SKIPPED 10.
 
-- BD-L2-SMCPAPP01NEW
-- BD-L2-SMCPFIDO01NEW
-- BD-L2-SMCPOIDCWAS01NEW
-- BD-L2-SMCPOIDCWEB01NEW
-- BD-L2-SMCPONM01NEW
-- datacat-test
+### 4.3 Netstate — revalidated
 
-The other 53 hosts evaluated PASS for the independently validated NetworkManager/link-state logic. RX/TX error/drop counters remain display-only.
+The same 59-host network revalidation applied the locked Netstate policy:
+
+- evaluate NetworkManager only when it is actually in use,
+- evaluate only configured/in-use links,
+- do not warn on unused disconnected ports,
+- exclude local virtual bridge devices such as `virbr0` from physical-link health findings,
+- use `ip` address/route/link evidence when `nmcli` evidence is unavailable.
+
+Result: all 59 hosts evaluated PASS in the independent revalidation.
+
+The six WARN hosts from the earlier scan (`BD-L2-SMCPAPP01NEW`, `BD-L2-SMCPFIDO01NEW`, `BD-L2-SMCPOIDCWAS01NEW`, `BD-L2-SMCPOIDCWEB01NEW`, `BD-L2-SMCPONM01NEW`, and `datacat-test`) were artifacts of including non-reportable virtual/local links or overly broad fallback behavior. The earlier 53 PASS / 6 WARN distribution is superseded.
+
+RX/TX error/drop counters remain display-only.
 
 ### 5.1 Multipath
 
@@ -89,5 +100,5 @@ All six applicable hosts evaluated PASS for path redundancy in this validation. 
 
 - SKIPPED is not a failure. It includes both non-applicable hosts and hosts with insufficient evidence, according to each rule.
 - No FAIL status was produced in this selected validation set.
-- The large WARN counts for Time Sync, Kdump, and 10G network parameters should be reviewed against the exact production parser output before they are used in customer-facing summaries.
-- Final report distributions must come from the production batch runner after parser-path and applicability checks are locked.
+- The network revalidation is still an independent corpus scan, not a production `sosdiag analyze-corpus` execution.
+- Final customer-report distributions must come from the production batch runner after the complete repository is executable against the corpus.
