@@ -5,6 +5,7 @@ import re
 from sosdiag.archive import SosArchive
 from sosdiag.model.host import HostFacts
 from sosdiag.model.system_runtime import ChronyFacts, FirewalldFacts, KdumpFacts, PackageUpdateFacts
+from sosdiag.parser.systemd import parse_systemd_unit_state
 
 
 def parse_package_update_facts(archive: SosArchive, host: HostFacts) -> PackageUpdateFacts:
@@ -28,16 +29,10 @@ def parse_package_update_facts(archive: SosArchive, host: HostFacts) -> PackageU
 
 def parse_firewalld_facts(archive: SosArchive) -> FirewalldFacts:
     facts = FirewalldFacts()
-    unit_files = archive.first_text(["sos_commands/systemd/systemctl_list-unit-files"])
-    units = archive.first_text(["sos_commands/systemd/systemctl_list-units_--all", "sos_commands/systemd/systemctl_list-units"])
-    if unit_files:
-        path, text = unit_files
-        facts.evidence_paths.append(path)
-        facts.enabled = _unit_enabled(text, "firewalld.service")
-    if units:
-        path, text = units
-        facts.evidence_paths.append(path)
-        facts.active = _unit_active(text, "firewalld.service")
+    state = parse_systemd_unit_state(archive, "firewalld.service")
+    facts.enabled = state.enabled
+    facts.active = state.active
+    facts.evidence_paths.extend(state.evidence_paths)
     zones = archive.first_text(["sos_commands/firewalld/firewall-cmd_--list-all-zones"])
     if zones:
         path, text = zones
@@ -48,11 +43,9 @@ def parse_firewalld_facts(archive: SosArchive) -> FirewalldFacts:
 
 def parse_chrony_facts(archive: SosArchive) -> ChronyFacts:
     facts = ChronyFacts()
-    units = archive.first_text(["sos_commands/systemd/systemctl_list-units_--all", "sos_commands/systemd/systemctl_list-units"])
-    if units:
-        path, text = units
-        facts.evidence_paths.append(path)
-        facts.active = _unit_active(text, "chronyd.service")
+    state = parse_systemd_unit_state(archive, "chronyd.service")
+    facts.active = state.active
+    facts.evidence_paths.extend(state.evidence_paths)
 
     sources = archive.first_text([
         "sos_commands/chrony/chronyc_-n_sources",
@@ -81,16 +74,11 @@ def parse_chrony_facts(archive: SosArchive) -> ChronyFacts:
 
 def parse_kdump_facts(archive: SosArchive) -> KdumpFacts:
     facts = KdumpFacts()
-    unit_files = archive.first_text(["sos_commands/systemd/systemctl_list-unit-files"])
-    units = archive.first_text(["sos_commands/systemd/systemctl_list-units_--all", "sos_commands/systemd/systemctl_list-units"])
-    if unit_files:
-        path, text = unit_files
-        facts.evidence_paths.append(path)
-        facts.enabled = _unit_enabled(text, "kdump.service")
-    if units:
-        path, text = units
-        facts.evidence_paths.append(path)
-        facts.active = _unit_active(text, "kdump.service")
+    state = parse_systemd_unit_state(archive, "kdump.service")
+    facts.enabled = state.enabled
+    facts.active = state.active
+    facts.evidence_paths.extend(state.evidence_paths)
+
     cmdline = archive.first_text(["proc/cmdline"])
     if cmdline:
         path, text = cmdline
@@ -126,11 +114,11 @@ def parse_kdump_facts(archive: SosArchive) -> KdumpFacts:
                 facts.parameters[name] = int(value)
             except ValueError:
                 facts.parameters[name] = value
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
 
 
 def _kernel_package_key(package: str) -> tuple:
-    # Compare kernel NVR components naturally rather than with lexical string order.
     version = package.removeprefix("kernel-")
     tokens = re.findall(r"\d+|[A-Za-z]+", version)
     return tuple((0, int(token)) if token.isdigit() else (1, token.lower()) for token in tokens)
@@ -148,23 +136,3 @@ def _chronyc_source_count(text: str) -> int | None:
         if re.match(r"^[\^=#~][*+\-?x~]?\s*\S+", stripped):
             count += 1
     return count if count > 0 else None
-
-
-def _unit_enabled(text: str, unit: str) -> bool | None:
-    for line in text.splitlines():
-        fields = line.split()
-        if fields and fields[0] == unit and len(fields) > 1:
-            return fields[1] == "enabled"
-    return None
-
-
-def _unit_active(text: str, unit: str) -> bool | None:
-    for line in text.splitlines():
-        if unit not in line:
-            continue
-        lower = line.lower()
-        if " active " in f" {lower} " and (" running " in f" {lower} " or " exited " in f" {lower} "):
-            return True
-        if " inactive " in f" {lower} " or " failed " in f" {lower} ":
-            return False
-    return None
