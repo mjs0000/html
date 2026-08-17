@@ -65,12 +65,19 @@ def parse_bonding_facts(archive: SosArchive) -> BondingFacts:
 
 def parse_network_kernel_facts(archive: SosArchive) -> NetworkKernelFacts:
     facts = NetworkKernelFacts()
+    nmcli_dev = archive.first_text([
+        "sos_commands/networkmanager/nmcli_dev",
+        "sos_commands/networkmanager/nmcli_device",
+    ])
     active = archive.first_text([
         "sos_commands/networkmanager/nmcli_con_--active",
         "sos_commands/networkmanager/nmcli_con_show_--active",
-        "sos_commands/networkmanager/nmcli_con",
     ])
-    active_text = active[1] if active else ""
+
+    device_rows = _parse_nmcli_device_rows(nmcli_dev[1]) if nmcli_dev else {}
+    active_rows = _parse_nmcli_active_rows(active[1]) if active else {}
+    if nmcli_dev:
+        facts.evidence_paths.append(nmcli_dev[0])
     if active:
         facts.evidence_paths.append(active[0])
 
@@ -79,14 +86,14 @@ def parse_network_kernel_facts(archive: SosArchive) -> NetworkKernelFacts:
         link_up = _parse_link(text)
         if speed is None or speed < 10000 or link_up is not True:
             continue
-        configured = bool(re.search(rf"\b{re.escape(iface)}\b", active_text)) if active_text else None
-        if configured is True:
-            facts.qualifying_interface = iface
-            facts.speed_mbps = speed
-            facts.link_up = True
-            facts.configured = True
-            facts.evidence_paths.append(path)
-            break
+        if not _is_active_physical_ethernet(iface, device_rows, active_rows):
+            continue
+        facts.qualifying_interface = iface
+        facts.speed_mbps = speed
+        facts.link_up = True
+        facts.configured = True
+        facts.evidence_paths.append(path)
+        break
 
     sysctl = archive.first_text(["sos_commands/kernel/sysctl_-a"])
     if sysctl:
@@ -107,6 +114,7 @@ def parse_network_kernel_facts(archive: SosArchive) -> NetworkKernelFacts:
                     facts.values[name] = int(raw)
                 except ValueError:
                     facts.values[name] = raw
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
 
 
@@ -135,19 +143,14 @@ def parse_netstate_facts(archive: SosArchive) -> NetstateFacts:
 
     if nmcli_dev:
         facts.evidence_paths.append(nmcli_dev[0])
-        for line in nmcli_dev[1].splitlines():
-            if not line.strip() or line.lstrip().startswith("DEVICE"):
-                continue
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            iface = parts[0]
-            state = parts[2].lower()
+        for iface, (connection_type, state) in _parse_nmcli_device_rows(nmcli_dev[1]).items():
             if iface == "lo":
                 continue
+            connected = state in {"connected", "connecting"}
             facts.interfaces.append(NetworkInterfaceFacts(
                 interface_name=iface,
-                configured=state in {"connected", "connecting"},
+                connection_type=connection_type,
+                configured=connected,
                 active_connection=state == "connected",
                 carrier=True if state == "connected" else None,
                 operational_state=state,
@@ -168,6 +171,7 @@ def parse_netstate_facts(archive: SosArchive) -> NetstateFacts:
             facts.interfaces.append(NetworkInterfaceFacts(interface_name=iface, carrier=link, speed_mbps=speed))
             known.add(iface)
         facts.evidence_paths.append(path)
+    facts.evidence_paths = list(dict.fromkeys(facts.evidence_paths))
     return facts
 
 
@@ -212,6 +216,60 @@ def parse_multipath_facts(archive: SosArchive) -> MultipathFacts:
         facts.effective_config_available = True
         facts.evidence_paths.append("etc/multipath.conf")
     return facts
+
+
+def _parse_nmcli_device_rows(text: str) -> dict[str, tuple[str | None, str | None]]:
+    rows: dict[str, tuple[str | None, str | None]] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.upper().startswith("DEVICE "):
+            continue
+        fields = stripped.split()
+        if len(fields) < 3:
+            continue
+        rows[fields[0]] = (fields[1].lower(), fields[2].lower())
+    return rows
+
+
+def _parse_nmcli_active_rows(text: str) -> dict[str, str | None]:
+    rows: dict[str, str | None] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.upper().startswith("NAME "):
+            continue
+        fields = stripped.split()
+        if len(fields) < 4:
+            continue
+        device = fields[-1]
+        connection_type = fields[-2].lower()
+        if device and device != "--":
+            rows[device] = connection_type
+    return rows
+
+
+def _is_active_physical_ethernet(
+    iface: str,
+    device_rows: dict[str, tuple[str | None, str | None]],
+    active_rows: dict[str, str | None],
+) -> bool:
+    if iface not in active_rows:
+        return False
+
+    device_type: str | None = None
+    device_state: str | None = None
+    if iface in device_rows:
+        device_type, device_state = device_rows[iface]
+
+    active_type = active_rows.get(iface)
+    if device_type is not None and device_type != "ethernet":
+        return False
+    if active_type is not None and active_type != "ethernet":
+        return False
+    if device_type is None and active_type is None:
+        return False
+    if device_state is not None and device_state not in {"connected", "connecting"}:
+        return False
+    return True
 
 
 def _direct_ethtool_entries(archive: SosArchive) -> list[tuple[str, str, str]]:
