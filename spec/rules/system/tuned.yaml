@@ -1,0 +1,59 @@
+id: SYS_TUNED
+category: System
+section: "3.15"
+title: Tuned
+parser: tuned
+policy_note: >-
+  Tuned 서비스 상태와 시스템 유형에 맞는 Active Profile을 별도 sub-check로 평가한다.
+  Oracle profile은 이 프로젝트 진단 범위에서 제외한다.
+evidence:
+  primary:
+    - sos_commands/tuned/tuned-adm_active
+    - sos_commands/tuned/tuned-adm_recommend
+    - sos_commands/systemd/systemctl_list-unit-files
+    - sos_commands/systemd/systemctl_list-units
+  supporting:
+    - etc/tuned/active_profile
+    - sos_commands/networking/ethtool_*
+sub_checks:
+  - id: tuned_service
+    title: Tuned Service
+    assessment:
+      pass_when:
+        - tuned.service is enabled and active
+      warn_when:
+        - tuned.service is disabled or inactive
+      skipped_when:
+        - tuned service state cannot be determined
+
+  - id: tuned_profile
+    title: Tuned Profile
+    recommended_profiles:
+      virtual_machine: virtual-guest
+      baremetal_general: throughput-performance
+      baremetal_10g_non_db_non_virtualization: network-throughput
+    excluded_profiles:
+      - oracle
+    assessment:
+      pass_when:
+        - active profile matches the applicable project recommendation
+      warn_when:
+        - active profile differs from the applicable project recommendation
+      skipped_when:
+        - system type, network applicability, or active profile cannot be determined
+    notes:
+      - "Oracle profile is intentionally excluded from this diagnostic policy."
+      - "tuned-adm recommend is supporting context; project profile policy is authoritative for this diagnostic."
+html:
+  columns:
+    - hostname
+    - type
+    - network
+    - tuned_state
+    - active_profile
+    - recommended_profile
+    - service_status
+    - profile_status
+missing_data:
+  status: SKIPPED
+  include_in_report: false
