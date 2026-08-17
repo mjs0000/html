@@ -60,12 +60,8 @@ def evaluate_selinux(facts: SelinuxFacts) -> DiagnosticResult:
     if facts.runtime_config_mismatch:
         findings.append("Runtime 상태와 /etc/selinux/config 설정이 일치하지 않습니다.")
 
-    # /proc/cmdline is additional evidence only. It never independently overrides
-    # the primary decision made from getenforce + /etc/selinux/config.
-    if facts.rhel_major is not None and facts.rhel_major >= 9 and facts.kernel_selinux_disabled is False:
-        findings.append(
-            "RHEL 9 이상이며 /proc/cmdline에 selinux=0이 없습니다. 주요 판정은 getenforce와 /etc/selinux/config를 따르되 추가 검토가 필요합니다."
-        )
+    # /proc/cmdline is supporting evidence only. Absence of selinux=0 does not
+    # create a finding when runtime and persistent configuration are Disabled.
     if facts.kernel_selinux_disabled is True and facts.runtime_mode not in {None, "Disabled"}:
         findings.append(
             "/proc/cmdline에는 selinux=0이 있으나 Runtime 상태와 일치하지 않습니다. Evidence 충돌을 확인해야 합니다."
@@ -92,7 +88,7 @@ def evaluate_selinux(facts: SelinuxFacts) -> DiagnosticResult:
         recommendations=[
             "SELinux 권고 상태는 disabled입니다.",
             "주요 판정은 getenforce와 /etc/selinux/config를 기준으로 수행합니다.",
-            "/proc/cmdline은 추가 Evidence로 표시하며 RHEL 9 이상에서는 selinux=0 여부를 함께 검토합니다.",
+            "/proc/cmdline은 추가 Evidence로만 표시합니다.",
         ],
         evidence=evidence,
     )
