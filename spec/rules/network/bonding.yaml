@@ -1,0 +1,112 @@
+id: NET_BONDING
+category: Network
+section: "4.1"
+title: 이중화 (Bonding)
+parser: bonding
+policy_note: >-
+  Bonding을 사용하는 시스템만 평가한다. 일반 구성에서는 active-backup을 권장하며,
+  충분한 대역폭 확보가 필요한 경우 802.3ad(LACP)를 허용/권장한다. Round-Robin(mode=0)은
+  일반 권장 구성으로 보지 않는다.
+applicability:
+  applies_when:
+    - at least one bond interface is present
+  not_applicable_when:
+    - no bond interface is configured
+  not_applicable_status: SKIPPED
+evidence:
+  primary:
+    - proc/net/bonding/*
+    - sos_commands/networkmanager/nmcli_con
+  supporting:
+    - sos_commands/networkmanager/nmcli_con_show_id_*
+    - sos_commands/networking/ip_-d_link
+normalized_fields:
+  - bond_name
+  - mode
+  - miimon
+  - mii_status
+  - slaves
+  - slave_count
+  - active_slave
+  - slave_link_states
+  - lacp_rate
+sub_checks:
+  - id: bonding_mode
+    title: Bonding Mode
+    recommended:
+      accepted_modes:
+        - active-backup
+        - 802.3ad
+        - dynamic-link-aggregation
+    assessment:
+      pass_when:
+        - bond mode is active-backup
+        - bond mode is 802.3ad or dynamic-link-aggregation
+      warn_when:
+        - bond mode is round-robin or another mode outside the project recommended set
+      skipped_when:
+        - bond mode cannot be determined
+    notes:
+      - "Use mode=1/active-backup as the default recommendation when no special network requirement exists."
+      - "LACP is acceptable when bandwidth aggregation is required."
+
+  - id: link_monitoring
+    title: Link Monitoring
+    recommended:
+      active_backup_miimon_ms: 100
+    assessment:
+      pass_when:
+        - active-backup bond has MII Polling Interval of 100 ms
+        - non-active-backup bond has usable link-monitoring evidence appropriate to its configured mode
+      warn_when:
+        - active-backup bond has miimon disabled or a value other than 100 ms
+        - bond link monitoring is clearly unavailable
+      skipped_when:
+        - link-monitoring value cannot be determined
+    notes:
+      - "For active-backup, /proc/net/bonding/* is authoritative for the effective miimon value."
+      - "A NetworkManager UI value of 0 must not override an effective MII Polling Interval of 100 ms shown in /proc/net/bonding/*."
+
+  - id: redundancy_state
+    title: Bond Redundancy State
+    recommended:
+      minimum_slaves: 2
+      bond_mii_status: up
+      slave_links: up
+    assessment:
+      pass_when:
+        - bond has at least two slave interfaces
+        - bond MII status is up
+        - all participating slave interfaces report link/MII status up
+      warn_when:
+        - bond has fewer than two slaves
+        - bond MII status is down
+        - one or more participating slave interfaces report link/MII status down
+      skipped_when:
+        - slave count or link state cannot be determined
+    notes:
+      - "For active-backup, preserve Currently Active Slave as evidence but do not require more than one active slave at the same time."
+      - "For 802.3ad, preserve LACP-related details as evidence; lacp_rate is display-only unless a separate project value is defined."
+html:
+  summary_columns:
+    - hostname
+    - bond_name
+    - mode
+    - miimon
+    - slave_count
+    - active_slave
+    - link_state
+    - mode_status
+    - monitoring_status
+    - redundancy_status
+  notes:
+    - "Render only hosts where Bonding is configured. Hosts without Bonding are not part of the customer-facing 4.1 table."
+    - "If a host has multiple bonds, render one row per bond interface."
+overall_status:
+  mode: derived_from_sub_checks
+  rule: >-
+    If an overall 4.1 status is required, use the worse visible sub-check status while preserving Mode,
+    Link Monitoring, and Redundancy State separately.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
