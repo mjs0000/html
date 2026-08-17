@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 from sosdiag.model.diagnostic import DiagnosticResult, HostReport
-from sosdiag.model.report import CustomerInfo, DiagnosticReport, ReportMetadata
+from sosdiag.model.report import CustomerInfo, DiagnosticReport, ReportMetadata, ReportRunSummary
 
 
 def load_report_metadata(path: str | Path | None = None) -> ReportMetadata:
@@ -15,7 +15,11 @@ def load_report_metadata(path: str | Path | None = None) -> ReportMetadata:
     return ReportMetadata.model_validate(data)
 
 
-def build_report(payloads: list[dict], metadata: ReportMetadata) -> DiagnosticReport:
+def build_report(
+    payloads: list[dict],
+    metadata: ReportMetadata,
+    run_summary: dict | None = None,
+) -> DiagnosticReport:
     hosts: list[HostReport] = []
     for payload in payloads:
         host_data = payload.get("host", {})
@@ -29,4 +33,17 @@ def build_report(payloads: list[dict], metadata: ReportMetadata) -> DiagnosticRe
                 diagnostics=diagnostics,
             )
         )
-    return DiagnosticReport(metadata=metadata, hosts=hosts)
+
+    hosts.sort(key=lambda host: (host.hostname or "").lower())
+    parsed_summary = ReportRunSummary.model_validate(run_summary) if run_summary is not None else None
+    return DiagnosticReport(metadata=metadata, hosts=hosts, run_summary=parsed_summary)
+
+
+def corpus_run_summary(payload: dict) -> dict:
+    return {
+        "source_count": payload.get("source_count", 0),
+        "analyzed_count": payload.get("analyzed_count", 0),
+        "error_count": payload.get("error_count", 0),
+        "status_distribution": payload.get("status_distribution", {}),
+        "errors": payload.get("errors", []),
+    }
