@@ -76,6 +76,8 @@ def parse_network_kernel_facts(archive: SosArchive) -> NetworkKernelFacts:
 
     device_rows = _parse_nmcli_device_rows(nmcli_dev[1]) if nmcli_dev else {}
     active_rows = _parse_nmcli_active_rows(active[1]) if active else {}
+    configured_ip = _configured_ip_interfaces(archive)
+    link_rows = _parse_ip_link_rows(archive)
     if nmcli_dev:
         facts.evidence_paths.append(nmcli_dev[0])
     if active:
@@ -86,7 +88,7 @@ def parse_network_kernel_facts(archive: SosArchive) -> NetworkKernelFacts:
         link_up = _parse_link(text)
         if speed is None or speed < 10000 or link_up is not True:
             continue
-        if not _is_active_physical_ethernet(iface, device_rows, active_rows):
+        if not _is_active_physical_ethernet(iface, device_rows, active_rows, configured_ip, link_rows):
             continue
         facts.qualifying_interface = iface
         facts.speed_mbps = speed
@@ -141,19 +143,38 @@ def parse_netstate_facts(archive: SosArchive) -> NetstateFacts:
     elif facts.networkmanager_active is False:
         facts.networkmanager_in_use = False
 
+    link_rows = _parse_ip_link_rows(archive)
+    configured_ip = _configured_ip_interfaces(archive)
+
     if nmcli_dev:
         facts.evidence_paths.append(nmcli_dev[0])
         for iface, (connection_type, state) in _parse_nmcli_device_rows(nmcli_dev[1]).items():
             if iface == "lo":
                 continue
-            connected = state in {"connected", "connecting"}
+            excluded = _is_non_reportable_virtual_iface(iface, connection_type)
+            connected = state in {"connected", "connecting"} and not excluded
             facts.interfaces.append(NetworkInterfaceFacts(
                 interface_name=iface,
                 connection_type=connection_type,
+                master_interface=link_rows.get(iface, {}).get("master"),
                 configured=connected,
-                active_connection=state == "connected",
-                carrier=True if state == "connected" else None,
+                active_connection=state == "connected" and not excluded,
+                carrier=True if state == "connected" and not excluded else None,
                 operational_state=state,
+            ))
+    else:
+        for iface in sorted(configured_ip):
+            if iface == "lo" or _is_non_reportable_virtual_iface(iface, None):
+                continue
+            link = link_rows.get(iface, {})
+            is_up = link.get("up")
+            facts.interfaces.append(NetworkInterfaceFacts(
+                interface_name=iface,
+                master_interface=link.get("master"),
+                configured=True,
+                active_connection=True,
+                carrier=is_up,
+                operational_state=link.get("state"),
             ))
 
     known = {i.interface_name for i in facts.interfaces}
@@ -167,7 +188,7 @@ def parse_netstate_facts(archive: SosArchive) -> NetstateFacts:
             match.speed_mbps = speed
             if link is not None:
                 match.carrier = link
-        elif iface not in known:
+        elif iface not in known and not _is_non_reportable_virtual_iface(iface, None):
             facts.interfaces.append(NetworkInterfaceFacts(interface_name=iface, carrier=link, speed_mbps=speed))
             known.add(iface)
         facts.evidence_paths.append(path)
@@ -247,29 +268,95 @@ def _parse_nmcli_active_rows(text: str) -> dict[str, str | None]:
     return rows
 
 
+def _configured_ip_interfaces(archive: SosArchive) -> set[str]:
+    configured: set[str] = set()
+    addr = archive.first_text(["sos_commands/networking/ip_-o_addr"])
+    if addr:
+        for line in addr[1].splitlines():
+            m = re.match(r"^\d+:\s+([^\s:]+)(?::\S+)?\s+inet6?\s+(\S+)\s+", line)
+            if not m:
+                continue
+            iface, address = m.group(1), m.group(2)
+            if iface != "lo" and not address.lower().startswith("fe80:"):
+                configured.add(iface)
+    routes = archive.first_text(["sos_commands/networking/ip_route_show_table_all"])
+    if routes:
+        for line in routes[1].splitlines():
+            if " linkdown " in f" {line} ":
+                continue
+            m = re.search(r"\bdev\s+(\S+)", line)
+            if m and m.group(1) != "lo":
+                configured.add(m.group(1))
+    return configured
+
+
+def _parse_ip_link_rows(archive: SosArchive) -> dict[str, dict[str, object]]:
+    found = archive.first_text(["sos_commands/networking/ip_-s_-d_link"])
+    if not found:
+        return {}
+    rows: dict[str, dict[str, object]] = {}
+    current: str | None = None
+    for line in found[1].splitlines():
+        m = re.match(r"^\d+:\s+([^:@]+)(?:@[^:]+)?:\s+<([^>]*)>.*?\bstate\s+(\S+)", line)
+        if m:
+            current = m.group(1)
+            flags = {part.strip().upper() for part in m.group(2).split(",")}
+            master = None
+            mm = re.search(r"\bmaster\s+(\S+)", line)
+            if mm:
+                master = mm.group(1)
+            rows[current] = {
+                "flags": flags,
+                "state": m.group(3).upper(),
+                "master": master,
+                "physical": False,
+                "up": "UP" in flags and "LOWER_UP" in flags,
+            }
+            continue
+        if current and current in rows:
+            if "parentbus pci" in line.lower() or re.search(r"\bparentdev\s+[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-9a-f]\b", line, re.I):
+                rows[current]["physical"] = True
+    return rows
+
+
+def _is_non_reportable_virtual_iface(iface: str, connection_type: str | None) -> bool:
+    lower = iface.lower()
+    if connection_type in {"bridge", "tun", "tap", "vxlan", "dummy", "loopback"}:
+        return True
+    return lower.startswith(("virbr", "veth", "docker", "cni", "podman", "tap", "tun", "vxlan"))
+
+
 def _is_active_physical_ethernet(
     iface: str,
     device_rows: dict[str, tuple[str | None, str | None]],
     active_rows: dict[str, str | None],
+    configured_ip: set[str],
+    link_rows: dict[str, dict[str, object]],
 ) -> bool:
-    if iface not in active_rows:
-        return False
-
     device_type: str | None = None
     device_state: str | None = None
     if iface in device_rows:
         device_type, device_state = device_rows[iface]
-
     active_type = active_rows.get(iface)
-    if device_type is not None and device_type != "ethernet":
-        return False
-    if active_type is not None and active_type != "ethernet":
-        return False
-    if device_type is None and active_type is None:
-        return False
-    if device_state is not None and device_state not in {"connected", "connecting"}:
-        return False
-    return True
+
+    nmcli_ok = iface in active_rows
+    if nmcli_ok:
+        if device_type is not None and device_type != "ethernet":
+            nmcli_ok = False
+        if active_type is not None and active_type != "ethernet":
+            nmcli_ok = False
+        if device_type is None and active_type is None:
+            nmcli_ok = False
+        if device_state is not None and device_state not in {"connected", "connecting"}:
+            nmcli_ok = False
+
+    link = link_rows.get(iface, {})
+    ip_ok = bool(
+        iface in configured_ip
+        and link.get("physical") is True
+        and link.get("up") is True
+    )
+    return nmcli_ok or ip_ok
 
 
 def _direct_ethtool_entries(archive: SosArchive) -> list[tuple[str, str, str]]:
