@@ -18,13 +18,22 @@ def test_render_corpus_summary_and_hosts(tmp_path):
             },
             "diagnostics": [
                 DiagnosticResult(
+                    id="SYS_HW_CERT",
+                    category="System",
+                    section="3.1",
+                    title="Hardware Certification",
+                    status="SKIPPED",
+                    summary="reference provider not configured",
+                    include_in_report=True,
+                ).model_dump(),
+                DiagnosticResult(
                     id="SYS_LIFECYCLE",
                     category="System",
                     section="3.2",
                     title="Life-Cycle",
                     status="PASS",
                     summary="supported",
-                ).model_dump()
+                ).model_dump(),
             ],
         },
         {
@@ -36,6 +45,15 @@ def test_render_corpus_summary_and_hosts(tmp_path):
                 "rhel_version": "9.2",
             },
             "diagnostics": [
+                DiagnosticResult(
+                    id="SYS_HW_CERT",
+                    category="System",
+                    section="3.1",
+                    title="Hardware Certification",
+                    status="SKIPPED",
+                    summary="reference provider not configured",
+                    include_in_report=True,
+                ).model_dump(),
                 DiagnosticResult(
                     id="NET_KERNEL_PARAM",
                     category="Network",
@@ -49,7 +67,7 @@ def test_render_corpus_summary_and_hosts(tmp_path):
                             "net.core.netdev_budget": "PASS",
                         }
                     },
-                ).model_dump()
+                ).model_dump(),
             ],
         },
     ]
@@ -58,6 +76,7 @@ def test_render_corpus_summary_and_hosts(tmp_path):
         "analyzed_count": 2,
         "error_count": 0,
         "status_distribution": {
+            "SYS_HW_CERT": {"PASS": 0, "WARN": 0, "FAIL": 0, "SKIPPED": 2},
             "SYS_LIFECYCLE": {"PASS": 1, "WARN": 0, "FAIL": 0, "SKIPPED": 0},
             "NET_KERNEL_PARAM": {"PASS": 0, "WARN": 1, "FAIL": 0, "SKIPPED": 0},
         },
@@ -83,6 +102,9 @@ def test_render_corpus_summary_and_hosts(tmp_path):
 
     assert "Test Customer" in html
     assert "입력 sosreport" in html
+    assert "Hardware Certification" in html
+    assert "reference provider not configured" in html
+    assert "SYS_HW_CERT" in html
     assert "NET_KERNEL_PARAM" in html
     assert "주요 WARN/FAIL 원인 요약" in html
     assert "net.core.netdev_max_backlog" in html
@@ -140,5 +162,5 @@ def test_large_corpus_summary_is_issue_focused(tmp_path):
 
     assert "대량 Host 보고서는" in html
     assert "host-10" in html
-    assert html.count("chrony result") == 12  # 1 issue summary + 11 host details
+    assert html.count("chrony result") == 12
     assert "<details open>" not in html
