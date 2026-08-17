@@ -37,12 +37,18 @@ def test_render_corpus_summary_and_hosts(tmp_path):
             },
             "diagnostics": [
                 DiagnosticResult(
-                    id="SYS_TIME_SYNC",
-                    category="System",
-                    section="3.8",
-                    title="시간 동기화",
+                    id="NET_KERNEL_PARAM",
+                    category="Network",
+                    section="4.2",
+                    title="네트워크 커널 파라미터",
                     status="WARN",
-                    summary="source count low",
+                    summary="10G parameter mismatch",
+                    current_values={
+                        "parameter_status": {
+                            "net.core.netdev_max_backlog": "WARN",
+                            "net.core.netdev_budget": "PASS",
+                        }
+                    },
                 ).model_dump()
             ],
         },
@@ -53,7 +59,16 @@ def test_render_corpus_summary_and_hosts(tmp_path):
         "error_count": 0,
         "status_distribution": {
             "SYS_LIFECYCLE": {"PASS": 1, "WARN": 0, "FAIL": 0, "SKIPPED": 0},
-            "SYS_TIME_SYNC": {"PASS": 0, "WARN": 1, "FAIL": 0, "SKIPPED": 0},
+            "NET_KERNEL_PARAM": {"PASS": 0, "WARN": 1, "FAIL": 0, "SKIPPED": 0},
+        },
+        "issue_distribution": {
+            "NET_KERNEL_PARAM": {
+                "net.core.netdev_max_backlog": {
+                    "warn_count": 1,
+                    "fail_count": 0,
+                    "hosts": ["host-b"],
+                }
+            }
         },
         "errors": [],
     }
@@ -68,7 +83,9 @@ def test_render_corpus_summary_and_hosts(tmp_path):
 
     assert "Test Customer" in html
     assert "입력 sosreport" in html
-    assert "SYS_TIME_SYNC" in html
+    assert "NET_KERNEL_PARAM" in html
+    assert "주요 WARN/FAIL 원인 요약" in html
+    assert "net.core.netdev_max_backlog" in html
     assert "host-a" in html
     assert "host-b" in html
     assert "VM" in html
