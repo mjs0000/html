@@ -6,7 +6,8 @@ parser: bonding
 policy_note: >-
   Bonding을 사용하는 시스템만 평가한다. 일반 구성에서는 active-backup을 권장하며,
   충분한 대역폭 확보가 필요한 경우 802.3ad(LACP)를 허용/권장한다. Round-Robin(mode=0)은
-  일반 권장 구성으로 보지 않는다.
+  일반 권장 구성으로 보지 않는다. 모든 Slave 인터페이스의 링크/MII 상태를 확인하며,
+  전체 Slave가 Up인 경우에만 Redundancy State를 PASS로 판정한다.
 applicability:
   applies_when:
     - at least one bond interface is present
@@ -72,20 +73,22 @@ sub_checks:
     recommended:
       minimum_slaves: 2
       bond_mii_status: up
-      slave_links: up
+      all_slave_links: up
     assessment:
       pass_when:
         - bond has at least two slave interfaces
         - bond MII status is up
-        - all participating slave interfaces report link/MII status up
+        - every configured slave interface reports link/MII status up
       warn_when:
         - bond has fewer than two slaves
         - bond MII status is down
-        - one or more participating slave interfaces report link/MII status down
+        - at least one configured slave interface reports link/MII status down
       skipped_when:
-        - slave count or link state cannot be determined
+        - slave count or one or more slave link states cannot be determined
     notes:
-      - "For active-backup, preserve Currently Active Slave as evidence but do not require more than one active slave at the same time."
+      - "Check every configured Slave interface individually. Redundancy State is PASS only when all Slave link/MII states are Up."
+      - "If any Slave is Down, Redundancy State is WARN."
+      - "For active-backup, Currently Active Slave identifies the forwarding slave, but all configured Slave interfaces must still have link/MII state Up for PASS."
       - "For 802.3ad, preserve LACP-related details as evidence; lacp_rate is display-only unless a separate project value is defined."
 html:
   summary_columns:
@@ -95,13 +98,19 @@ html:
     - miimon
     - slave_count
     - active_slave
-    - link_state
+    - slave_states
     - mode_status
     - monitoring_status
     - redundancy_status
+  slave_detail_columns:
+    - hostname
+    - bond_name
+    - slave_name
+    - slave_link_state
   notes:
     - "Render only hosts where Bonding is configured. Hosts without Bonding are not part of the customer-facing 4.1 table."
     - "If a host has multiple bonds, render one row per bond interface."
+    - "Display every Slave state so a single Down interface is visible in the report."
 overall_status:
   mode: derived_from_sub_checks
   rule: >-
