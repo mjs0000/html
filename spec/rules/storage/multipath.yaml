@@ -33,17 +33,34 @@ normalized_fields:
   - total_path_count
   - usable_path_count
   - failed_path_count
-  - path_states
+  - unknown_path_count
+  - dm_status
+  - checker_status
+  - path_status
   - dm_state
   - path_checker
   - path_grouping_policy
   - features
+path_state_semantics:
+  source: multipath -ll
+  ordered_tail_columns:
+    - dm_status
+    - checker_status
+    - path_status
+  healthy_values:
+    dm_status: active
+    checker_status: ready
+    path_status: running
+  notes:
+    - "For a path line ending in 'active ready running', map active -> dm_status, ready -> checker_status, running -> path_status."
+    - "Never drop or conflate any of the three status columns."
+    - "If one or more required path-state columns are missing, do not fabricate a healthy path result."
 sub_checks:
   - id: multipath_map_state
     title: Multipath Map State
     assessment:
       pass_when:
-        - multipath map is present and device-mapper state is active/usable
+        - multipath map is present and device-mapper state is explicitly known to be active/usable
       warn_when:
         - multipath map is present but device-mapper state is failed, suspended, or otherwise unusable
       skipped_when:
@@ -53,15 +70,20 @@ sub_checks:
     title: Multipath Path Redundancy
     recommended:
       minimum_usable_paths: 2
+      healthy_path:
+        dm_status: active
+        checker_status: ready
+        path_status: running
     assessment:
       pass_when:
         - multipath map has at least two usable paths
-        - every configured path expected to participate in the map is in a usable/up state
+        - every configured path expected to participate in the map has dm_status=active, checker_status=ready, and path_status=running
       warn_when:
         - multipath map has fewer than two usable paths
-        - at least one configured path is failed, faulty, offline, down, or otherwise unusable
+        - at least one configured path is failed, faulty, offline, down, or otherwise explicitly unusable
+        - a complete three-column path state is present but does not match the healthy state
       skipped_when:
-        - path count or one or more path states cannot be determined
+        - path count or one or more path-state columns cannot be determined and there is no explicit failure evidence
     notes:
       - "Check every path shown for each multipath map. PASS requires redundancy and no failed path."
       - "A map may remain operational with one failed path, but this diagnostic still reports WARN because redundancy is degraded."
@@ -88,6 +110,7 @@ html:
     - total_paths
     - usable_paths
     - failed_paths
+    - unknown_paths
     - map_status
     - redundancy_status
     - config_status
@@ -97,8 +120,9 @@ html:
     - path_device
     - hctl
     - path_group
-    - path_state
-    - dm_state
+    - dm_status
+    - checker_status
+    - path_status
   notes:
     - "Render only hosts where at least one real multipath map is detected."
     - "If a host has multiple multipath maps, render one summary row per map."
