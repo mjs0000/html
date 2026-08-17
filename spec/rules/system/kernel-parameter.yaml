@@ -1,0 +1,88 @@
+id: SYS_KERNEL_PARAM
+category: System
+section: "3.11"
+title: 기본 커널 파라미터
+parser: sysctl
+policy_note: >-
+  Scope에 정의된 기본 커널 파라미터 권장값을 Hostname별로 비교한다.
+  net.ipv4.ip_forward는 KVM/Docker 등 NAT 네트워킹 사용 여부에 따라 조건부로 판정한다.
+evidence:
+  primary:
+    - sos_commands/kernel/sysctl_-a
+  supporting:
+    - etc/sysctl.conf
+    - etc/sysctl.d/99-sysctl.conf
+normalized_fields:
+  - vm.dirty_background_ratio
+  - vm.dirty_ratio
+  - vm.swappiness
+  - net.ipv4.ip_forward
+  - net.core.somaxconn
+  - net.ipv4.tcp_max_syn_backlog
+parameters:
+  - name: vm.dirty_background_ratio
+    recommended:
+      operator: eq
+      value: 10
+  - name: vm.dirty_ratio
+    recommended:
+      conditional:
+        physical:
+          operator: eq
+          value: 40
+        virtual:
+          operator: eq
+          value: 30
+  - name: vm.swappiness
+    recommended:
+      operator: range
+      min: 1
+      max: 10
+    note: "Scope 표에는 <=10으로 기재되어 있으나 swappiness=0은 권장하지 않으므로 1~10을 정상 범위로 판정한다."
+  - name: net.ipv4.ip_forward
+    recommended:
+      conditional:
+        default:
+          operator: eq
+          value: 0
+        nat_workload:
+          operator: eq
+          value: 1
+    applicability_note: "KVM, Docker 등 NAT 네트워킹을 사용하는 workload에서는 1이 정상이다."
+  - name: net.core.somaxconn
+    recommended:
+      operator: ge
+      value: 4096
+  - name: net.ipv4.tcp_max_syn_backlog
+    recommended:
+      operator: ge
+      value: 8192
+assessment:
+  pass_when:
+    - all applicable parameters match the project recommendation
+  warn_when:
+    - one or more applicable parameters differ from the project recommendation
+  skipped_when:
+    - required sysctl evidence is not available
+  notes:
+    - "Do not mark net.ipv4.ip_forward as WARN until workload applicability is resolved."
+    - "When workload context is unavailable for net.ipv4.ip_forward, display the value and mark only that parameter SKIPPED while evaluating the other parameters normally."
+html:
+  parameter_matrix:
+    orientation: horizontal
+    row_key: hostname
+    columns:
+      - net.core.somaxconn
+      - net.ipv4.ip_forward
+      - net.ipv4.tcp_max_syn_backlog
+      - vm.dirty_background_ratio
+      - vm.dirty_ratio
+      - vm.swappiness
+      - status
+    show_recommended_row: true
+    notes:
+      - "Display one host per row and one sysctl parameter per column, matching the Scope-style comparison matrix."
+      - "For vm.dirty_ratio, show the applicable recommendation by Physical/VM type."
+missing_data:
+  status: SKIPPED
+  include_in_report: false
