@@ -8,6 +8,13 @@ import typer
 from sosdiag.archive import SosArchive
 from sosdiag.diagnostics.selinux import evaluate_selinux
 from sosdiag.diagnostics.system_basics import evaluate_boot_mode, evaluate_filesystem, evaluate_lifecycle
+from sosdiag.diagnostics.system_mid import (
+    evaluate_coredump,
+    evaluate_default_services,
+    evaluate_error_log,
+    evaluate_kernel_parameters,
+    evaluate_logrotate_sysstat,
+)
 from sosdiag.diagnostics.system_runtime import evaluate_chrony, evaluate_firewalld, evaluate_kdump, evaluate_package_update
 from sosdiag.parser.host import parse_host_facts
 from sosdiag.parser.selinux import parse_selinux
@@ -16,6 +23,13 @@ from sosdiag.parser.system_basics import (
     parse_filesystem_facts,
     parse_hardware_certification_facts,
     parse_lifecycle_facts,
+)
+from sosdiag.parser.system_mid import (
+    parse_coredump_facts,
+    parse_default_service_facts,
+    parse_error_log_facts,
+    parse_kernel_parameter_facts,
+    parse_logrotate_sysstat_facts,
 )
 from sosdiag.parser.system_runtime import (
     parse_chrony_facts,
@@ -60,6 +74,12 @@ def analyze(
     chrony = evaluate_chrony(parse_chrony_facts(archive))
     kdump = evaluate_kdump(parse_kdump_facts(archive))
 
+    error_log = evaluate_error_log(parse_error_log_facts(archive))
+    kernel_params = evaluate_kernel_parameters(parse_kernel_parameter_facts(archive, host))
+    default_services = evaluate_default_services(parse_default_service_facts(archive))
+    coredump = evaluate_coredump(parse_coredump_facts(archive))
+    logrotate_sysstat = evaluate_logrotate_sysstat(parse_logrotate_sysstat_facts(archive))
+
     diagnostics = [
         lifecycle,
         boot_mode,
@@ -69,6 +89,11 @@ def analyze(
         firewalld,
         chrony,
         kdump,
+        error_log,
+        kernel_params,
+        default_services,
+        coredump,
+        logrotate_sysstat,
     ]
 
     payload = {
