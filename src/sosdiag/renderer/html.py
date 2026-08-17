@@ -7,6 +7,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sosdiag.model.report import DiagnosticReport
 
 
+_LARGE_REPORT_HOST_THRESHOLD = 10
+
+
 def render_html(report: DiagnosticReport, output: str | Path) -> Path:
     template_root = Path(__file__).resolve().parents[3] / "templates" / "html"
     env = Environment(
@@ -23,6 +26,7 @@ def render_html(report: DiagnosticReport, output: str | Path) -> Path:
             metadata=report.metadata,
             hosts=report.hosts,
             run_summary=report.run_summary,
+            large_report=len(report.hosts) > _LARGE_REPORT_HOST_THRESHOLD,
         ),
         encoding="utf-8",
     )
