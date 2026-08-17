@@ -107,6 +107,7 @@ def test_render_corpus_summary_and_hosts(tmp_path):
     assert "SYS_HW_CERT" in html
     assert "NET_KERNEL_PARAM" in html
     assert "주요 WARN/FAIL 원인 요약" in html
+    assert html.count("주요 WARN/FAIL 원인 요약") == 1
     assert "net.core.netdev_max_backlog" in html
     assert "host-a" in html
     assert "host-b" in html
