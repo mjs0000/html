@@ -7,14 +7,23 @@
   <style>
     body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #1f2937; }
     .box { border: 1px solid #d1d5db; border-radius: 8px; padding: 20px; margin: 20px 0; }
+    .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+    .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 14px; }
+    .card .label { color: #6b7280; font-size: 13px; }
+    .card .value { font-size: 28px; font-weight: 700; }
     a { color: #0f4c81; font-weight: 700; }
-    .pending { color: #9a6700; }
+    .warn { background: #fff8e5; }
   </style>
 </head>
 <body>
-  <h1>구조진단 작업 생성 완료</h1>
+  <h1>구조진단 실행 완료</h1>
   <p><strong>고객사:</strong> {{ customer_name }}</p>
   <p><strong>Job ID:</strong> {{ job_id }}</p>
+
+  <div class="cards">
+    <div class="card"><div class="label">분석 완료 Host</div><div class="value">{{ analyzed_count }}</div></div>
+    <div class="card{% if error_count %} warn{% endif %}"><div class="label">처리 오류</div><div class="value">{{ error_count }}</div></div>
+  </div>
 
   <div class="box">
     <h2>업로드 파일</h2>
@@ -25,11 +34,12 @@
     <h2>생성 결과</h2>
     <ul>
       {% for item in generated %}
-        <li>
-          {% if item.url %}<a href="{{ item.url }}">{{ item.name }}</a>{% else %}<span class="pending">{{ item.name }}</span>{% endif %}
-        </li>
+        <li><a href="{{ item.url }}">{{ item.label or item.name }}</a> <small>({{ item.name }})</small></li>
       {% endfor %}
     </ul>
+    {% if error_count %}
+    <p class="warn">일부 sosreport 처리 오류가 있습니다. 상세 오류는 분석 JSON 및 HTML의 실행 요약에서 확인하십시오.</p>
+    {% endif %}
   </div>
 
   <p><a href="/">새 진단 시작</a></p>
