@@ -1,0 +1,91 @@
+id: SYS_ERROR_LOG
+category: System
+section: "3.10"
+title: 시스템 에러 로그
+parser: error_log
+policy_note: >-
+  시스템 로그에서 실제 장애 징후를 식별하되, 단순 문자열 매칭만으로 상태를 판정하지 않는다.
+  동일/유사 이벤트는 묶어서 표시하고 심각도와 반복성, 하드웨어/커널 영향 여부를 함께 본다.
+evidence:
+  primary:
+    - var/log/messages
+    - sos_commands/kernel/dmesg
+    - sos_commands/logs/journalctl_--no-pager
+  supporting:
+    - var/log/secure
+    - var/log/boot.log
+    - sos_commands/logs/journalctl_--list-boots
+normalized_fields:
+  - timestamp
+  - source
+  - severity
+  - component
+  - signature
+  - message
+  - count
+  - first_seen
+  - last_seen
+  - impact_category
+categories:
+  critical_signatures:
+    - kernel panic
+    - oops
+    - BUG:
+    - general protection fault
+    - machine check
+    - MCE
+    - EDAC uncorrected
+    - I/O error
+    - filesystem corruption
+    - XFS metadata error
+    - ext4-fs error
+    - call trace with fatal context
+  warning_signatures:
+    - soft lockup
+    - hard lockup
+    - hung task
+    - watchdog
+    - link down
+    - reset
+    - timeout
+    - degraded
+    - corrected hardware error
+noise_handling:
+  rules:
+    - "Do not mark WARN or FAIL solely because a line contains error, fail, warning, timeout, reset, or similar keywords."
+    - "Ignore known informational/expected messages when no operational impact is evident."
+    - "Deduplicate repeated identical or near-identical signatures per host and report occurrence count."
+    - "Preserve the original log line as evidence for every reported signature."
+assessment:
+  pass_when:
+    - no actionable critical or warning signatures remain after context-aware filtering
+  warn_when:
+    - actionable warning signatures are present
+    - corrected/recovered hardware or kernel events are present and merit review
+    - repeated non-fatal events indicate instability or degraded behavior
+  fail_when:
+    - explicit fatal system events are present, such as kernel panic, fatal Oops/BUG, uncorrected hardware error, or filesystem corruption with clear operational impact
+  skipped_when:
+    - no usable messages, dmesg, or journal evidence is available
+html:
+  summary_columns:
+    - hostname
+    - critical_count
+    - warning_count
+    - top_signature
+    - status
+  detail_columns:
+    - hostname
+    - timestamp
+    - source
+    - severity
+    - component
+    - signature
+    - count
+    - message
+  notes:
+    - "Show a compact hostname summary first, followed only by actionable findings."
+    - "Do not dump the full raw log into the customer-facing report."
+missing_data:
+  status: SKIPPED
+  include_in_report: false
