@@ -6,6 +6,12 @@ from pathlib import Path
 import typer
 
 from sosdiag.archive import SosArchive
+from sosdiag.diagnostics.network_storage import (
+    evaluate_bonding,
+    evaluate_multipath,
+    evaluate_netstate,
+    evaluate_network_kernel,
+)
 from sosdiag.diagnostics.selinux import evaluate_selinux
 from sosdiag.diagnostics.system_basics import evaluate_boot_mode, evaluate_filesystem, evaluate_lifecycle
 from sosdiag.diagnostics.system_mid import (
@@ -18,6 +24,12 @@ from sosdiag.diagnostics.system_mid import (
 from sosdiag.diagnostics.system_runtime import evaluate_chrony, evaluate_firewalld, evaluate_kdump, evaluate_package_update
 from sosdiag.diagnostics.system_tail import evaluate_irqbalance, evaluate_other_settings, evaluate_timer, evaluate_tuned
 from sosdiag.parser.host import parse_host_facts
+from sosdiag.parser.network_storage import (
+    parse_bonding_facts,
+    parse_multipath_facts,
+    parse_netstate_facts,
+    parse_network_kernel_facts,
+)
 from sosdiag.parser.selinux import parse_selinux
 from sosdiag.parser.system_basics import (
     parse_boot_mode_facts,
@@ -92,6 +104,11 @@ def analyze(
     timer = evaluate_timer(parse_timer_facts(archive))
     other_settings = evaluate_other_settings(parse_other_settings_facts(archive))
 
+    bonding = evaluate_bonding(parse_bonding_facts(archive))
+    network_kernel = evaluate_network_kernel(parse_network_kernel_facts(archive))
+    netstate = evaluate_netstate(parse_netstate_facts(archive))
+    multipath = evaluate_multipath(parse_multipath_facts(archive))
+
     diagnostics = [
         lifecycle,
         boot_mode,
@@ -110,6 +127,10 @@ def analyze(
         irqbalance,
         timer,
         other_settings,
+        bonding,
+        network_kernel,
+        netstate,
+        multipath,
     ]
 
     payload = {
