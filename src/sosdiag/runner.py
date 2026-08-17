@@ -5,7 +5,7 @@ from pathlib import Path
 from sosdiag.archive import SosArchive
 from sosdiag.diagnostics.network_storage import evaluate_bonding, evaluate_multipath, evaluate_netstate, evaluate_network_kernel
 from sosdiag.diagnostics.selinux import evaluate_selinux
-from sosdiag.diagnostics.system_basics import evaluate_boot_mode, evaluate_filesystem, evaluate_lifecycle
+from sosdiag.diagnostics.system_basics import evaluate_boot_mode, evaluate_filesystem, evaluate_hardware_certification, evaluate_lifecycle
 from sosdiag.diagnostics.system_mid import evaluate_coredump, evaluate_default_services, evaluate_error_log, evaluate_kernel_parameters, evaluate_logrotate_sysstat
 from sosdiag.diagnostics.system_runtime import evaluate_chrony, evaluate_firewalld, evaluate_kdump, evaluate_package_update
 from sosdiag.diagnostics.system_tail import evaluate_irqbalance, evaluate_other_settings, evaluate_timer, evaluate_tuned
@@ -26,7 +26,7 @@ def _text(archive: SosArchive, candidates: list[str]) -> str | None:
 def analyze_source(source: str | Path) -> dict:
     archive = SosArchive(source)
     host = parse_host_facts(archive)
-    hardware = parse_hardware_certification_facts(host)
+    hardware = parse_hardware_certification_facts(host, archive)
 
     selinux_sources = {
         "os_release": _text(archive, ["etc/redhat-release", "etc/os-release"]),
@@ -37,6 +37,7 @@ def analyze_source(source: str | Path) -> dict:
     }
 
     diagnostics = [
+        evaluate_hardware_certification(hardware),
         evaluate_lifecycle(parse_lifecycle_facts(host)),
         evaluate_boot_mode(parse_boot_mode_facts(archive)),
         evaluate_filesystem(parse_filesystem_facts(archive)),
