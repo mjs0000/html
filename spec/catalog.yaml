@@ -30,7 +30,7 @@ diagnostics:
   parser: lifecycle
   automation: conditional
   render:
-    html: false
+    html: true
     docx: true
     json: true
   legacy_xlsx: true
@@ -58,7 +58,7 @@ diagnostics:
   parser: packages
   automation: conditional
   render:
-    html: false
+    html: true
     docx: true
     json: true
   legacy_xlsx: true
