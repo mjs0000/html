@@ -50,11 +50,18 @@ class ReportRunError(BaseModel):
     error: str
 
 
+class IssueAggregate(BaseModel):
+    warn_count: int = 0
+    fail_count: int = 0
+    hosts: list[str] = Field(default_factory=list)
+
+
 class ReportRunSummary(BaseModel):
     source_count: int = 0
     analyzed_count: int = 0
     error_count: int = 0
     status_distribution: dict[str, dict[str, int]] = Field(default_factory=dict)
+    issue_distribution: dict[str, dict[str, IssueAggregate]] = Field(default_factory=dict)
     errors: list[ReportRunError] = Field(default_factory=list)
 
 
