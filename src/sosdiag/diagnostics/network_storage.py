@@ -129,29 +129,110 @@ def evaluate_multipath(facts: MultipathFacts) -> DiagnosticResult:
             id="STG_MULTIPATH", category="Storage", section="5.1", title="Device Mapper Multipath",
             status="SKIPPED", summary="실제 Multipath Map이 없어 평가 대상이 아닙니다.", include_in_report=False,
         )
-    rows = []
+
+    map_rows = []
+    path_rows = []
     findings: list[str] = []
-    overall = "PASS"
+    visible_statuses: list[str] = []
+
     for mp in facts.maps:
-        states = [(p.path_state or "").lower() for p in mp.paths]
-        dm_states = [(p.dm_state or "").lower() for p in mp.paths]
-        usable = sum(1 for s, d in zip(states, dm_states) if s in {"ready", "active", "up", "running"} and d not in {"failed", "faulty", "offline"})
-        failed = sum(1 for s, d in zip(states, dm_states) if s in {"failed", "faulty", "offline", "down"} or d in {"failed", "faulty", "offline"})
-        map_status = "WARN" if (mp.dm_state or "").lower() in {"failed", "suspended", "offline"} else "PASS"
-        redundancy_status = "PASS" if len(mp.paths) >= 2 and usable >= 2 and failed == 0 else "WARN"
+        usable = 0
+        failed = 0
+        unknown = 0
+
+        for path in mp.paths:
+            dm_status = (path.dm_status or "").lower()
+            checker_status = (path.checker_status or "").lower()
+            path_status = (path.path_status or "").lower()
+            complete = bool(dm_status and checker_status and path_status)
+            is_usable = (
+                dm_status == "active"
+                and checker_status == "ready"
+                and path_status == "running"
+            )
+            is_failed = (
+                dm_status in {"failed", "faulty", "offline"}
+                or checker_status in {"failed", "faulty", "offline", "down", "ghost"}
+                or path_status in {"failed", "faulty", "offline", "down"}
+            )
+
+            if is_failed:
+                failed += 1
+            elif is_usable:
+                usable += 1
+            elif not complete:
+                unknown += 1
+            else:
+                failed += 1
+
+            path_rows.append({
+                "map_name": mp.map_name,
+                "path_device": path.device,
+                "hctl": path.hctl,
+                "path_group": path.path_group,
+                "dm_status": path.dm_status,
+                "checker_status": path.checker_status,
+                "path_status": path.path_status,
+            })
+
+        if mp.dm_state is None:
+            map_status = "SKIPPED"
+        elif mp.dm_state.lower() in {"failed", "suspended", "offline"}:
+            map_status = "WARN"
+        else:
+            map_status = "PASS"
+
+        if len(mp.paths) < 2 or failed > 0:
+            redundancy_status = "WARN"
+        elif unknown > 0:
+            redundancy_status = "SKIPPED"
+        elif usable == len(mp.paths) and usable >= 2:
+            redundancy_status = "PASS"
+        else:
+            redundancy_status = "WARN"
+
         config_status = "PASS" if facts.effective_config_available is True else ("SKIPPED" if facts.effective_config_available is None else "WARN")
-        if "WARN" in {map_status, redundancy_status, config_status}:
-            overall = "WARN"
+
+        for status in (map_status, redundancy_status, config_status):
+            if status != "SKIPPED":
+                visible_statuses.append(status)
+
         if redundancy_status == "WARN":
-            findings.append(f"{mp.map_name}: usable path={usable}, failed path={failed}로 이중화 상태를 확인해야 합니다.")
-        rows.append({
-            "map_name": mp.map_name, "wwid": mp.wwid, "vendor_product": " ".join(filter(None, [mp.vendor, mp.product])),
-            "total_paths": len(mp.paths), "usable_paths": usable, "failed_paths": failed,
-            "map_status": map_status, "redundancy_status": redundancy_status, "config_status": config_status,
+            findings.append(
+                f"{mp.map_name}: total={len(mp.paths)}, usable={usable}, failed={failed}, unknown={unknown}. "
+                "각 경로의 dm/checker/path 상태를 확인하십시오."
+            )
+
+        map_rows.append({
+            "map_name": mp.map_name,
+            "wwid": mp.wwid,
+            "vendor_product": " ".join(filter(None, [mp.vendor, mp.product])),
+            "total_paths": len(mp.paths),
+            "usable_paths": usable,
+            "failed_paths": failed,
+            "unknown_paths": unknown,
+            "map_status": map_status,
+            "redundancy_status": redundancy_status,
+            "config_status": config_status,
         })
+
+    overall = "WARN" if "WARN" in visible_statuses else ("PASS" if visible_statuses else "SKIPPED")
+    tables = [ReportTable(columns=list(map_rows[0].keys()), rows=map_rows)]
+    if path_rows:
+        tables.append(ReportTable(columns=list(path_rows[0].keys()), rows=path_rows))
+
     return DiagnosticResult(
         id="STG_MULTIPATH", category="Storage", section="5.1", title="Device Mapper Multipath", status=overall,
-        summary="실제 Multipath Map과 모든 Path의 정상 상태/이중화를 평가합니다.", findings=findings,
+        summary="실제 Multipath Map과 각 Path의 dm_status=active, checker_status=ready, path_status=running 상태 및 이중화를 평가합니다.",
+        findings=findings,
+        current_values={"multipath_status": overall, **facts.model_dump()},
+        recommended_values={
+            "minimum_usable_paths": 2,
+            "dm_status": "active",
+            "checker_status": "ready",
+            "path_status": "running",
+        },
         evidence=[Evidence(source=p, detail="multipath evidence") for p in facts.evidence_paths],
-        tables=[ReportTable(columns=list(rows[0].keys()), rows=rows)],
+        tables=tables,
+        include_in_report=overall != "SKIPPED",
     )
