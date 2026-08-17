@@ -48,9 +48,27 @@ def analyze_corpus_command(
     output_dir: str = typer.Option("output", "--output-dir"),
     format: str = typer.Option("html", "--format"),
     metadata: str | None = typer.Option(None, "--metadata"),
+    expected_count: int | None = typer.Option(
+        None,
+        "--expected-count",
+        min=1,
+        help="Abort before analysis unless the discovered sosreport count matches this value.",
+    ),
+    fail_on_error: bool = typer.Option(
+        False,
+        "--fail-on-error/--allow-errors",
+        help="Exit non-zero after writing outputs if any archive failed analysis.",
+    ),
 ) -> None:
     """Analyze all sosreport archives in a directory and generate one integrated HTML report."""
     sources = discover_sosreports(source_dir)
+    if not sources:
+        raise typer.BadParameter("no sosreport archives were discovered")
+    if expected_count is not None and len(sources) != expected_count:
+        raise typer.BadParameter(
+            f"discovered {len(sources)} sosreports, expected {expected_count}; analysis was not started"
+        )
+
     payload = analyze_corpus(sources)
 
     outdir = Path(output_dir)
@@ -77,6 +95,12 @@ def analyze_corpus_command(
         )
         html_output = render_html(report, outdir / "report.html")
         typer.echo(f"html={html_output}")
+
+    if fail_on_error and payload["error_count"]:
+        typer.echo("strict_result=FAILED", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo("strict_result=PASS" if fail_on_error else "strict_result=NOT_REQUESTED")
 
 
 if __name__ == "__main__":
