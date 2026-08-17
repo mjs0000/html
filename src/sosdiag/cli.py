@@ -16,6 +16,7 @@ from sosdiag.diagnostics.system_mid import (
     evaluate_logrotate_sysstat,
 )
 from sosdiag.diagnostics.system_runtime import evaluate_chrony, evaluate_firewalld, evaluate_kdump, evaluate_package_update
+from sosdiag.diagnostics.system_tail import evaluate_irqbalance, evaluate_other_settings, evaluate_timer, evaluate_tuned
 from sosdiag.parser.host import parse_host_facts
 from sosdiag.parser.selinux import parse_selinux
 from sosdiag.parser.system_basics import (
@@ -36,6 +37,12 @@ from sosdiag.parser.system_runtime import (
     parse_firewalld_facts,
     parse_kdump_facts,
     parse_package_update_facts,
+)
+from sosdiag.parser.system_tail import (
+    parse_irqbalance_facts,
+    parse_other_settings_facts,
+    parse_timer_facts,
+    parse_tuned_facts,
 )
 
 app = typer.Typer(help="Analyze RHEL sosreports and generate structure-diagnostic reports.")
@@ -80,6 +87,11 @@ def analyze(
     coredump = evaluate_coredump(parse_coredump_facts(archive))
     logrotate_sysstat = evaluate_logrotate_sysstat(parse_logrotate_sysstat_facts(archive))
 
+    tuned = evaluate_tuned(parse_tuned_facts(archive, host))
+    irqbalance = evaluate_irqbalance(parse_irqbalance_facts(archive))
+    timer = evaluate_timer(parse_timer_facts(archive))
+    other_settings = evaluate_other_settings(parse_other_settings_facts(archive))
+
     diagnostics = [
         lifecycle,
         boot_mode,
@@ -94,6 +106,10 @@ def analyze(
         default_services,
         coredump,
         logrotate_sysstat,
+        tuned,
+        irqbalance,
+        timer,
+        other_settings,
     ]
 
     payload = {
