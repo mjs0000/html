@@ -66,8 +66,9 @@ class MultipathPath(BaseModel):
     device: str | None = None
     hctl: str | None = None
     path_group: str | None = None
-    path_state: str | None = None
-    dm_state: str | None = None
+    dm_status: str | None = None
+    checker_status: str | None = None
+    path_status: str | None = None
 
 
 class MultipathMap(BaseModel):
