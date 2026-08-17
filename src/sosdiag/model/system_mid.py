@@ -9,6 +9,11 @@ class ErrorFinding(BaseModel):
     signature: str
     message: str
     count: int = 1
+    timestamp: str | None = None
+    component: str | None = None
+    first_seen: str | None = None
+    last_seen: str | None = None
+    impact_category: str | None = None
 
 
 class ErrorLogFacts(BaseModel):
