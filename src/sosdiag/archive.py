@@ -126,7 +126,7 @@ class SosArchive:
         if not tarfile.is_tarfile(self.source):
             raise ValueError(f"Unsupported sosreport source: {self.source}")
         with tarfile.open(self.source, mode="r:*") as tf:
-            members = [m for m in tf.getmembers() if m.isfile()]
+            members = [m for m in tf.getmembers() if m.isfile() or m.issym() or m.islnk()]
         self._tar_prefix = self._common_sos_prefix(m.name for m in members)
         self._tar_member_index = {}
         for member in members:
