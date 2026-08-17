@@ -36,6 +36,7 @@ class NetworkInterfaceFacts(BaseModel):
     interface_name: str
     connection_name: str | None = None
     connection_type: str | None = None
+    master_interface: str | None = None
     configured: bool | None = None
     active_connection: bool | None = None
     carrier: bool | None = None
