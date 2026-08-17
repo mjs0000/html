@@ -1,0 +1,97 @@
+id: SYS_KDUMP
+category: System
+section: "3.9"
+title: 덤프 수집(Kdump)
+parser: kdump
+recommended_state:
+  kdump_enabled: true
+  crashkernel_reserved: true
+  kdumpctl_showmem_available: true
+policy_note: >-
+  Kdump 동작 여부와 crash kernel 메모리 예약 상태를 확인하고,
+  장애 시 덤프 생성에 관련된 커널 파라미터를 함께 비교한다.
+evidence:
+  primary:
+    - proc/cmdline
+    - sys/kernel/kexec_crash_size
+    - etc/kdump.conf
+    - systemctl_list-unit-files
+    - systemctl_list-units
+    - sos_commands/kdump/kdumpctl_showmem
+  supporting:
+    - sos_commands/kdump/kdumpctl_status
+    - sos_commands/kernel/sysctl_-a
+    - proc/sys/kernel/*
+    - var/crash/*
+normalized_fields:
+  - kdump_enabled
+  - kdump_active
+  - crashkernel_parameter
+  - kexec_crash_size
+  - kdumpctl_showmem
+  - dump_target
+  - sysctl_values
+kernel_parameters:
+  - name: kernel.nmi_watchdog
+    recommended: 0
+  - name: kernel.panic_on_io_nmi
+    recommended: 1
+  - name: kernel.panic_on_unrecovered_nmi
+    recommended: 1
+  - name: kernel.unknown_nmi_panic
+    recommended: 1
+  - name: kernel.sysrq
+    recommended: 1
+  - name: kernel.hung_task_panic
+    recommended: null
+    display_only: true
+  - name: kernel.panic_on_oops
+    recommended: null
+    display_only: true
+  - name: kernel.panic
+    recommended: null
+    display_only: true
+  - name: kernel.softlockup_panic
+    recommended: null
+    display_only: true
+assessment:
+  pass_when:
+    - kdump service is enabled or otherwise confirmed usable by collected evidence
+    - crash kernel memory reservation is present
+    - all kernel parameters with an explicit recommended value match the project recommendation
+  warn_when:
+    - kdump is disabled or inactive
+    - crash kernel memory reservation is missing
+    - one or more kernel parameters with an explicit recommended value differ from the project recommendation
+  skipped_when:
+    - kdump state and crash memory reservation cannot be determined from usable evidence
+  notes:
+    - kdumpctl showmem is required evidence when present in the sosreport and should be displayed verbatim or normalized into a reserved-memory value.
+    - Parameters with recommended=null are informational only and must not independently change PASS/WARN status.
+html:
+  summary_columns:
+    - hostname
+    - kdump_state
+    - crashkernel
+    - kdumpctl_showmem
+    - status
+  parameter_matrix:
+    orientation: horizontal
+    row_key: hostname
+    columns:
+      - kernel.hung_task_panic
+      - kernel.nmi_watchdog
+      - kernel.panic
+      - kernel.panic_on_io_nmi
+      - kernel.panic_on_oops
+      - kernel.panic_on_unrecovered_nmi
+      - kernel.softlockup_panic
+      - kernel.sysrq
+      - kernel.unknown_nmi_panic
+    show_recommended_row: true
+    notes:
+      - "Render kernel parameters in a wide matrix similar to the supplied reference image: one host per row and one kernel parameter per column."
+      - "Parameters without a project recommendation are displayed for comparison only."
+missing_data:
+  status: SKIPPED
+  include_in_report: false
