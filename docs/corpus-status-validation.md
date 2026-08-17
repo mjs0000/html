@@ -67,6 +67,23 @@ A dedicated 59-host network revalidation was executed after the applicability ru
 
 This supersedes the earlier independent figure of WARN 49 / SKIPPED 10.
 
+#### 4.2 warning cause distribution
+
+For all 54 applicable hosts, the following six parameters were below or different from the project recommendation in the independent revalidation:
+
+| Parameter | WARN hosts |
+|---|---:|
+| `net.core.netdev_max_backlog` | 54 |
+| `net.ipv4.tcp_rmem` | 54 |
+| `net.ipv4.tcp_wmem` | 54 |
+| `net.core.rmem_max` | 54 |
+| `net.core.wmem_max` | 54 |
+| `vm.min_free_kbytes` | 54 |
+
+`net.core.netdev_budget=300` satisfied the project recommendation on all 54 applicable hosts in this independent validation and therefore did not contribute to the WARN result.
+
+The production batch report now aggregates structured sub-status values so repeated Host-level warnings can be summarized by parameter and affected Host count instead of printing the same finding dozens of times in the report overview.
+
 ### 4.3 Netstate — revalidated
 
 The same 59-host network revalidation applied the locked Netstate policy:
