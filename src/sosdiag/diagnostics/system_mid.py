@@ -25,7 +25,10 @@ def evaluate_error_log(facts: ErrorLogFacts) -> DiagnosticResult:
         summary="Context-aware signature filtering 결과입니다.",
         findings=[f"{f.signature}: {f.count}회" for f in facts.findings],
         current_values={"critical_count": len(fail), "warning_count": len(warn)},
-        tables=[ReportTable(columns=["source", "severity", "signature", "count", "message"], rows=rows)],
+        tables=[ReportTable(
+            columns=["timestamp", "source", "severity", "component", "signature", "count", "first_seen", "last_seen", "impact_category", "message"],
+            rows=rows,
+        )],
     )
 
 
@@ -87,8 +90,10 @@ def evaluate_default_services(facts: DefaultServiceFacts) -> DiagnosticResult:
         elif state.enabled is True or state.active is True:
             st = "WARN"
             findings.append(f"{name} enabled/active 상태 확인")
-        else:
+        elif state.enabled is False and state.active is False:
             st = "PASS"
+        else:
+            st = "SKIPPED"
         statuses.append(st)
         rows.append({"service": name, "enabled": state.enabled, "active": state.active, "status": st})
     overall = "WARN" if "WARN" in statuses else ("PASS" if any(s == "PASS" for s in statuses) else "SKIPPED")
@@ -127,8 +132,19 @@ def evaluate_coredump(facts: CoreDumpFacts) -> DiagnosticResult:
 
 
 def evaluate_logrotate_sysstat(facts: LogrotateSysstatFacts) -> DiagnosticResult:
-    freq = "SKIPPED" if facts.logrotate_frequency is None else ("PASS" if facts.logrotate_frequency in {"daily", "weekly"} else "WARN")
-    retention = "SKIPPED" if facts.logrotate_rotate_count is None else ("PASS" if facts.logrotate_rotate_count >= 12 else "WARN")
+    frequencies = facts.logrotate_frequencies or ([facts.logrotate_frequency] if facts.logrotate_frequency else [])
+    counts = facts.logrotate_rotate_counts or ([facts.logrotate_rotate_count] if facts.logrotate_rotate_count is not None else [])
+
+    if not frequencies:
+        freq = "SKIPPED"
+    else:
+        freq = "PASS" if all(value in {"daily", "weekly"} for value in frequencies) else "WARN"
+
+    if not counts:
+        retention = "SKIPPED"
+    else:
+        retention = "PASS" if all(value >= 12 for value in counts) else "WARN"
+
     if facts.sysstat_installed is False:
         sar = "WARN"
     elif facts.sysstat_enabled is False:
@@ -137,11 +153,20 @@ def evaluate_logrotate_sysstat(facts: LogrotateSysstatFacts) -> DiagnosticResult
         sar = "SKIPPED"
     else:
         sar = "PASS" if facts.sar_interval_minutes == 1 else "WARN"
+
     statuses = [freq, retention, sar]
     overall = "WARN" if "WARN" in statuses else ("PASS" if all(s == "PASS" for s in statuses) else "SKIPPED")
+    findings: list[str] = []
+    if freq == "WARN":
+        findings.append(f"Logrotate 주기 중 권고 범위를 벗어난 값이 있습니다: {', '.join(frequencies)}")
+    if retention == "WARN":
+        findings.append(f"Logrotate rotate 값 중 12 미만이 있습니다: {', '.join(str(v) for v in counts)}")
+    if sar == "WARN":
+        findings.append("sysstat 설치/활성 상태 또는 SAR 1분 수집 주기가 권고 기준과 다릅니다.")
+
     return DiagnosticResult(
         id="SYS_LOGROTATE_SYSSTAT", category="System", section="3.14", title="Logrotate / sysstat(SAR)", status=overall,
-        summary="Logrotate Frequency / Retention / SAR Interval을 별도 평가합니다.",
+        summary="Logrotate Frequency / Retention / SAR Interval을 별도 평가합니다.", findings=findings,
         current_values={**facts.model_dump(), "frequency_status": freq, "retention_status": retention, "sar_status": sar},
         include_in_report=overall != "SKIPPED",
     )
