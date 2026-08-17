@@ -67,7 +67,6 @@ def parse_boot_mode_facts(archive: SosArchive) -> BootModeFacts:
             facts.mode = "UEFI"
             return facts
 
-    # If we have explicit firmware inventory but no EFI directory, treat this as BIOS.
     if firmware_listing and facts.firmware_listing_has_efi is False:
         facts.mode = "BIOS"
     return facts
@@ -87,8 +86,7 @@ def parse_filesystem_facts(archive: SosArchive) -> FilesystemFacts:
     if findmnt:
         path, text = findmnt
         facts.evidence_paths.append(path)
-        entries = _parse_findmnt(text)
-        facts.entries.extend(entries)
+        facts.entries.extend(_parse_findmnt(text))
 
     if lsblk:
         path, text = lsblk
@@ -112,12 +110,22 @@ def _parse_findmnt(text: str) -> list[FilesystemEntry]:
         stripped = line.strip()
         if stripped.startswith("TARGET") or stripped.startswith("├") or stripped.startswith("└"):
             continue
-        # Common sosreport findmnt output: TARGET SOURCE FSTYPE OPTIONS...
         parts = stripped.replace("├─", "").replace("└─", "").split()
         if len(parts) < 3:
             continue
         target, source, fstype = parts[0], parts[1], parts[2]
         if not target.startswith("/"):
+            continue
+        # 3.4 evaluates persistent/local block-backed filesystems only. Pseudo,
+        # tmpfs, cgroup, overlay and other virtual mounts must not create WARNs.
+        if not source.startswith("/dev/"):
+            continue
+        if fstype.lower() in {
+            "autofs", "bpf", "cgroup", "cgroup2", "configfs", "debugfs",
+            "devpts", "devtmpfs", "efivarfs", "fusectl", "hugetlbfs", "mqueue",
+            "nsfs", "overlay", "proc", "pstore", "securityfs", "selinuxfs",
+            "sysfs", "tmpfs", "tracefs",
+        }:
             continue
         entries.append(FilesystemEntry(mount_point=target, device=source, filesystem_type=fstype))
     return entries
