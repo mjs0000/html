@@ -13,14 +13,25 @@ from sosdiag.model.system_basics import (
 )
 
 
-def parse_hardware_certification_facts(host: HostFacts) -> HardwareCertificationFacts:
+def parse_hardware_certification_facts(host: HostFacts, archive: SosArchive | None = None) -> HardwareCertificationFacts:
+    evidence_paths = [item.path for item in host.evidence]
+    if archive is not None:
+        paths = archive.paths()
+        for candidate in (
+            "sos_commands/processor/lscpu",
+            "sos_commands/pci/lspci_-nnvv",
+            "sos_commands/pci/lspci",
+        ):
+            if candidate in paths and candidate not in evidence_paths:
+                evidence_paths.append(candidate)
+
     return HardwareCertificationFacts(
         host_type=host.host_type,
         manufacturer=host.manufacturer,
         product_name=host.product_name,
         rhel_version=host.rhel_version,
         virtualization=host.virtualization,
-        evidence_paths=[item.path for item in host.evidence],
+        evidence_paths=evidence_paths,
     )
 
 
