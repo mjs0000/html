@@ -2,7 +2,7 @@ id: NET_KERNEL_PARAM
 category: Network
 section: "4.2"
 title: 네트워크 커널 파라미터
-parser: sysctl
+parser: network_sysctl
 policy_note: >-
   네트워크 성능 관련 커널 파라미터는 10G 이상 NIC가 실제로 구성되어 있고 Link가 Up인 시스템에서만 평가한다.
   10G 미만이거나 Link Down이거나 10G NIC가 실제 네트워크 구성에 사용되지 않는 경우 4.2 평가 대상에서 제외한다.
