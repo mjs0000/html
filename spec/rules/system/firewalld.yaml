@@ -4,6 +4,13 @@ section: "3.7"
 title: Firewalld
 parser: firewalld
 recommended_state: disabled
+evidence:
+  primary:
+    - systemctl_list-unit-files
+    - systemctl_list-units
+  supporting:
+    - firewall-cmd_--list-all-zones
+    - etc/firewalld/*
 display:
   always_show:
     - installed
@@ -16,14 +23,15 @@ display:
     - ports
     - rich_rules
 assessment:
-  disabled_or_inactive:
-    internal_status: PASS
-    grade: A
-    summary: Firewalld is disabled/inactive as recommended by the current RockPLACE policy.
-  enabled_or_active:
-    internal_status: WARN
-    grade: B
-    summary: Firewalld is enabled or active; the current RockPLACE recommendation is disabled. Display the detected configuration for review.
+  pass_when:
+    - firewalld is disabled and inactive
+  warn_when:
+    - firewalld is enabled or active
+  skipped_when:
+    - firewalld state cannot be determined from usable evidence
+  notes:
+    - installed-but-disabled/inactive is considered PASS
+    - when enabled or active, preserve and display the current zone/service/port/rich-rule configuration for review
 missing_data:
   status: SKIPPED
   include_in_report: false
@@ -31,3 +39,4 @@ missing_data:
 recommendation:
   - Recommended state for this diagnostic policy is disabled.
   - When Firewalld is enabled or active, preserve and display detected zones, services, ports, and rich rules rather than hiding the current configuration.
+  - Do not use A/B/C grades; report PASS, WARN, FAIL, or SKIPPED only.
