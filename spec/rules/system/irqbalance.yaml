@@ -1,0 +1,73 @@
+id: SYS_IRQBALANCE
+category: System
+section: "3.16"
+title: IRQ Balance Processing
+parser: irqbalance
+policy_note: >-
+  IRQBALANCE 서비스 동작 여부와 /etc/sysconfig/irqbalance의 IRQBALANCE_ONESHOT 설정을
+  별도 sub-check로 평가한다. Scope 권고는 IRQBALANCE 서비스를 활성화하고
+  IRQBALANCE_ONESHOT=yes를 적용하는 것이다.
+evidence:
+  primary:
+    - etc/sysconfig/irqbalance
+    - sos_commands/systemd/systemctl_list-unit-files
+    - sos_commands/systemd/systemctl_list-units
+  supporting:
+    - proc/interrupts
+normalized_fields:
+  - irqbalance_enabled
+  - irqbalance_active
+  - irqbalance_oneshot
+  - irq_distribution
+sub_checks:
+  - id: irqbalance_service
+    title: IRQBALANCE Service
+    recommended:
+      enabled: true
+      active: true
+    assessment:
+      pass_when:
+        - irqbalance.service is enabled and active
+      warn_when:
+        - irqbalance.service is disabled or inactive
+      skipped_when:
+        - irqbalance service state cannot be determined from usable evidence
+
+  - id: irqbalance_oneshot
+    title: IRQBALANCE_ONESHOT
+    recommended:
+      value: yes
+      source: /etc/sysconfig/irqbalance
+    assessment:
+      pass_when:
+        - IRQBALANCE_ONESHOT is explicitly configured as yes, case-insensitive
+      warn_when:
+        - IRQBALANCE_ONESHOT is absent, commented out, or configured to a value other than yes
+      skipped_when:
+        - /etc/sysconfig/irqbalance cannot be evaluated
+    notes:
+      - "Evaluate the explicit project setting in /etc/sysconfig/irqbalance."
+
+supporting_analysis:
+  proc_interrupts:
+    display_only: true
+    note: >-
+      /proc/interrupts may be used to show IRQ distribution across CPUs, but IRQ distribution alone
+      must not override the service or ONESHOT sub-check statuses.
+html:
+  summary_columns:
+    - hostname
+    - irqbalance_enabled
+    - irqbalance_active
+    - irqbalance_oneshot
+    - service_status
+    - oneshot_status
+  notes:
+    - "Keep IRQBALANCE Service and IRQBALANCE_ONESHOT statuses visible separately."
+overall_status:
+  mode: derived_from_sub_checks
+  rule: >-
+    If an overall 3.16 status is required, use the worse visible sub-check status while preserving each sub-check result.
+missing_data:
+  status: SKIPPED
+  include_in_report: false
