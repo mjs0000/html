@@ -13,6 +13,7 @@ policy_note: >-
   4개 구성은 falseticker 판별과 redundancy를 함께 고려할 수 있다.
 evidence:
   primary:
+    - sos_commands/chrony/chronyc_-n_sources
     - sos_commands/chrony/chronyc_sources_-v
     - sos_commands/chrony/chronyc_tracking
     - etc/chrony.conf
