@@ -6,7 +6,6 @@ parser: chrony
 recommended_state:
   service: active
   configured_sources_minimum: 4
-  selected_source_required: true
 policy_note: >-
   시각 동기화 서버를 최소 4개 이상 참조하도록 Time Source를 구성할 것을 권장한다.
   2개 구성은 어느 source가 더 정확한지 판별할 비교 reference가 부족하고,
@@ -23,22 +22,18 @@ evidence:
 normalized_fields:
   - chronyd_active
   - configured_source_count
-  - selected_source
-  - selectable_source_count
   - source_states
   - stratum
   - system_time_offset
 assessment:
   pass_when:
     - chronyd is active
-    - a selected synchronization source exists in chronyc sources output
     - configured time sources are 4 or more
   warn_when:
     - chronyd is inactive
-    - no selected synchronization source exists
     - configured time sources are fewer than 4
   skipped_when:
-    - chrony service state, selected source, or configured source count cannot be determined from usable evidence
+    - chrony service state or configured source count cannot be determined from usable evidence
   source_count_rationale:
     two_sources: "WARN: comparison reference is insufficient to reliably determine which source is preferable."
     three_sources: "WARN: falseticker determination is possible, but after excluding one source only two remain and redundancy is insufficient."
@@ -49,11 +44,9 @@ html:
     - hostname
     - chrony_state
     - configured_source_count
-    - selected_source
     - status
   notes:
-    - "Do not require every configured source to be selected. Exactly one current selected source (^*) is sufficient for synchronization-state confirmation."
-    - "The source-count policy evaluates configured reference sources, while selected_source confirms that chronyd is currently synchronized."
+    - "Selected source is not part of the 3.8 status decision or customer-facing summary."
 missing_data:
   status: SKIPPED
   include_in_report: false
